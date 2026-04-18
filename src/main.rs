@@ -1,5 +1,4 @@
-use clap::{Arg, ArgMatches, command};
-
+use clap::{Arg, ArgMatches, Command, command};
 
 // enum Command {
 //     Init,
@@ -12,45 +11,22 @@ use clap::{Arg, ArgMatches, command};
 // }
 
 fn main() {
-    let matches = command!()
+    let match_results = command!()
+    .version("0.1.0")
     .about("A command-line tool for developers to track daily activities and generate formatted timesheet summaries.")
-    .arg(
-        Arg::new("init")
-            .short('i')
-            .long("init")
-            .help("Provides a config file")
-    )
-    .arg(
-        Arg::new("list")
-            .short('l')
-            .long("list")
-            .help("Displays logged entries with optional filters")
-    )
-    .arg(
-        Arg::new("add")
-            .short('a')
-            .long("add")
-            .help("Logs a new activity entry")
-    )
-    .arg(
-        Arg::new("edit")
-            .short('e')
-            .long("edit")
-    )
-    .arg(
-        Arg::new("delete")
-            .short('d')
-            .long("delete")
-    )
-    .arg(
-        Arg::new("summary")
-            .short('s')
-            .long("summary")
-    )
-    .arg(
-        Arg::new("config")
-            .short('c')
-            .long("config")
-    )
+    .subcommand(Command::new("init"))
+    .subcommand(Command::new("list").about("Displays logged entries with optional filters"))
+    .subcommand(Command::new("add").about("Logs a new activity entry"))
+    .subcommand(Command::new("edit").about("Opens an interactive prompt to modify an existing entry"))
+    .subcommand(Command::new("delete").about("Removes an entry after confirmation"))
+    .subcommand(Command::new("summary").about("Generates a structured summary from logged entries"))
+    .subcommand(Command::new("config").about("Reads and writes configuration values"))
     .get_matches();
+
+    match match_results.subcommand() {
+        Some(("list", sub_matches)) => {
+            println!("user ran list")
+        }
+        _ => {}
+    }
 }

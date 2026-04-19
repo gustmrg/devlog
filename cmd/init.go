@@ -1,10 +1,10 @@
 /*
 Copyright © 2026 NAME HERE <EMAIL ADDRESS>
-
 */
 package cmd
 
 import (
+	"devlog/internal/store"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -18,7 +18,14 @@ var initCmd = &cobra.Command{
 
 Safe to run multiple times — will not overwrite existing data.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("init called")
+		err := store.Init()
+
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+
+		fmt.Println("config file successfully created")
 	},
 }
 

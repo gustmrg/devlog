@@ -30,13 +30,13 @@ $ devlog summary --style concise
 
 ## Installation
 
-**Prerequisites:** [Rust](https://rustup.rs/) must be installed.
+**Prerequisites:** [Go](https://go.dev/dl/) 1.21+ must be installed.
 
 ```bash
-git clone https://github.com/your-username/devlog
+git clone https://github.com/gustmrg/devlog
 cd devlog
-cargo build --release
-cp target/release/devlog /usr/local/bin/
+go build -o bin/devlog .
+mv bin/devlog /usr/local/bin/
 ```
 
 Then initialize the data directory:
@@ -164,10 +164,19 @@ devlog summary --ai --style impersonal
 
 Reads and writes configuration values.
 
+| Option | Description |
+|---|---|
+| `--model <model>` | Set the LLM model (e.g. `openai/gpt-4o-mini`) |
+| `--llm-enabled <bool>` | Enable or disable AI-powered summaries (`true` / `false`) |
+| `--language <code>` | Set the output language (e.g. `pt-BR`, `en-US`) |
+| `--style <style>` | Set the default summary style |
+| `--list` | Print all current config values |
+
 ```bash
-devlog config --set defaults.project echo
-devlog config --set defaults.language pt-BR
-devlog config --get defaults.style
+devlog config --model "openai/gpt-4o-mini"
+devlog config --llm-enabled true
+devlog config --language en-US
+devlog config --style formal
 devlog config --list
 ```
 
@@ -199,11 +208,11 @@ When you pass `--ai`, DevLog groups your entries and sends them to an LLM, which
 **Setup:**
 
 ```bash
-# Set your OpenAI API key as an environment variable
-export DEVLOG_OPENAI_API_KEY=sk-...
+# Set your OpenRouter API key as an environment variable
+export OPENROUTER_API_KEY=sk-or-xxx
 
 # Enable AI in config
-devlog config --set ai.enabled true
+devlog config --llm-enabled true
 ```
 
 **Example:**
@@ -231,15 +240,15 @@ Configuration is stored at `~/.devlog/config.json`.
 ```json
 {
   "defaults": {
-    "project": "echo",
+    "project": "",
     "style": "concise",
     "language": "pt-BR"
   },
-  "ai": {
+  "llm": {
     "enabled": false,
-    "provider": "openai",
-    "model": "gpt-4o-mini",
-    "apiKeyEnvVar": "DEVLOG_OPENAI_API_KEY"
+    "provider": "openrouter",
+    "model": "openai/gpt-oss-120b:free",
+    "apiKeyEnvVar": "OPENROUTER_API_KEY"
   },
   "reminder": {
     "enabled": false,
@@ -253,11 +262,43 @@ Configuration is stored at `~/.devlog/config.json`.
 | `defaults.project` | Default project when `--project` is omitted |
 | `defaults.style` | Default summary style |
 | `defaults.language` | Language for AI-generated summaries (e.g. `pt-BR`, `en-US`) |
-| `ai.enabled` | Enable AI-powered summary generation |
-| `ai.model` | LLM model to use |
-| `ai.apiKeyEnvVar` | Environment variable holding the API key |
+| `llm.enabled` | Enable AI-powered summary generation |
+| `llm.model` | LLM model to use |
+| `llm.apiKeyEnvVar` | Environment variable holding the API key |
 | `reminder.enabled` | Enable end-of-day reminder notifications |
 | `reminder.time` | Time to trigger reminder (HH:MM) |
+
+### LLM Integration
+
+devlog supports AI-powered summary generation via [OpenRouter](https://openrouter.ai), which gives you access to multiple models through a single API key.
+
+**1. Get an API key** at [openrouter.ai/keys](https://openrouter.ai/keys)
+
+**2. Set the environment variable** in your shell:
+
+```sh
+export OPENROUTER_API_KEY=sk-or-xxx
+```
+
+Add it to `~/.zshrc` (or `~/.bashrc`) to make it permanent:
+
+```sh
+echo 'export OPENROUTER_API_KEY=sk-or-xxx' >> ~/.zshrc
+source ~/.zshrc
+```
+
+**3. Enable LLM in config** (`~/.devlog/config.json`):
+
+```json
+"llm": {
+  "enabled": true,
+  "provider": "openrouter",
+  "model": "openai/gpt-4o-mini",
+  "apiKeyEnvVar": "OPENROUTER_API_KEY"
+}
+```
+
+You can browse available models at [openrouter.ai/models](https://openrouter.ai/models) and set your preferred one via `llm.model`.
 
 ---
 
@@ -284,10 +325,6 @@ Entries are stored as JSON (one file per day) and summaries are saved as Markdow
 
 ## Built With
 
-- [Rust](https://www.rust-lang.org/)
-- [clap](https://github.com/clap-rs/clap) — CLI argument parsing
-- [serde](https://serde.rs/) — JSON serialization
-- [chrono](https://github.com/chronotope/chrono) — Date/time handling
-- [reqwest](https://github.com/seanmonstar/reqwest) — HTTP client for AI integration
-- [tokio](https://tokio.rs/) — Async runtime
-- [colored](https://github.com/colored-rs/colored) — Terminal output styling
+- [Go](https://go.dev/)
+- [cobra](https://github.com/spf13/cobra) — CLI framework
+- [viper](https://github.com/spf13/viper) — Configuration management

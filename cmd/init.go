@@ -7,6 +7,7 @@ import (
 	"devlog/internal/store"
 	"fmt"
 
+	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 )
 
@@ -21,11 +22,11 @@ Safe to run multiple times — will not overwrite existing data.`,
 		err := store.Init()
 
 		if err != nil {
-			fmt.Println(err)
+			fmt.Printf("%s %s\n", color.RedString("✗"), err)
 			return
 		}
 
-		fmt.Println("config file successfully created")
+		fmt.Printf("%s devlog initialized successfully\n", color.GreenString("✔"))
 	},
 }
 

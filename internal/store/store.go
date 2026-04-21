@@ -111,6 +111,23 @@ func LoadSummary(filePath string) (Summary, error) {
 	}, nil
 }
 
+func SaveSummary(filePath string, summary Summary) error {
+	projectNames := make([]string, len(summary.Projects))
+	for i, p := range summary.Projects {
+		projectNames[i] = p.Name
+	}
+	content := fmt.Sprintf("---\ndate: %s\nstyle: %s\nprojects: %s\n---\n%s\n",
+		summary.Date.Format("2006-01-02"),
+		summary.Style,
+		strings.Join(projectNames, ", "),
+		summary.Content,
+	)
+	if err := os.WriteFile(filePath, []byte(content), 0644); err != nil {
+		return fmt.Errorf("error writing summary file: %w", err)
+	}
+	return nil
+}
+
 func Init() error {
 	path, err := ConfigPath()
 	if err != nil {

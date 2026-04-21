@@ -34,7 +34,7 @@ Examples:
 }
 
 func init() {
-	rootCmd.AddCommand(summaryCmd)
+	RootCmd.AddCommand(summaryCmd)
 
 	// Here you will define your flags and configuration settings.
 

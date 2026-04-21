@@ -31,7 +31,7 @@ Safe to run multiple times — will not overwrite existing data.`,
 }
 
 func init() {
-	rootCmd.AddCommand(initCmd)
+	RootCmd.AddCommand(initCmd)
 
 	// Here you will define your flags and configuration settings.
 

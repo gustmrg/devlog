@@ -60,10 +60,16 @@ devlog add -i
 devlog list
 
 # Generate today's summary
-devlog summary
+devlog summary create
 
 # Generate an AI-polished summary in formal style
-devlog summary --ai --style formal
+devlog summary create --ai --style formal
+
+# List all generated summaries
+devlog summary list
+
+# View a specific summary
+devlog summary show --date 2026-04-13
 ```
 
 ---
@@ -139,7 +145,7 @@ devlog delete a1b2c3d4
 
 ---
 
-### `devlog summary`
+### `devlog summary create`
 
 Generates a structured summary from logged entries and saves it to `~/.devlog/summaries/`.
 
@@ -152,10 +158,45 @@ Generates a structured summary from logged entries and saves it to `~/.devlog/su
 | `--format <template>` | `-f` | Template from `~/.devlog/templates/` |
 
 ```bash
-devlog summary
-devlog summary --style formal
-devlog summary --week --style detailed
-devlog summary --ai --style impersonal
+devlog summary create
+devlog summary create --style formal
+devlog summary create --week --style detailed
+devlog summary create --ai --style impersonal
+```
+
+---
+
+### `devlog summary list`
+
+Lists previously generated summaries from `~/.devlog/summaries/`.
+
+| Option | Short | Description |
+|---|---|---|
+| `--week` | `-w` | Show summaries from the current week |
+| `--month` | `-m` | Show summaries from the current month |
+| `--from <YYYY-MM-DD>` | | Start of date range |
+| `--to <YYYY-MM-DD>` | | End of date range |
+
+```bash
+devlog summary list
+devlog summary list --week
+devlog summary list --month
+devlog summary list --from 2026-04-01 --to 2026-04-14
+```
+
+---
+
+### `devlog summary show`
+
+Displays the contents of a previously generated summary.
+
+| Option | Short | Description |
+|---|---|---|
+| `--date <YYYY-MM-DD>` | | Show summary for a specific date (defaults to today) |
+
+```bash
+devlog summary show
+devlog summary show --date 2026-04-13
 ```
 
 ---
@@ -228,7 +269,7 @@ devlog config set llm.enabled true
 **Example:**
 
 ```
-$ devlog summary --ai --style formal
+$ devlog summary create --ai --style formal
 
 ## 2026-04-14 — 2h 30min
 

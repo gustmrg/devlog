@@ -13,21 +13,25 @@ import (
 // summaryCmd represents the summary command
 var summaryCmd = &cobra.Command{
 	Use:   "summary",
-	Short: "Generate a structured summary from logged entries",
-	Long: `Generates a structured summary from logged entries and saves it to ~/.devlog/summaries/.
+	Short: "Create and view summaries of logged entries",
+	Long: `Manage summaries generated from logged entries stored in ~/.devlog/summaries/.
 
-Options:
-      --date <YYYY-MM-DD>   Summarize a specific date (defaults to today)
-  -w, --week                Generate a weekly summary
-  -s, --style <style>       Output style: concise, detailed, formal, impersonal
-      --ai                  Use an LLM to produce a polished narrative
-  -f, --format <template>   Template from ~/.devlog/templates/
+Subcommands:
+  create   Generate a new summary from logged entries
+  list     List previously generated summaries
+  show     Display the contents of a previously generated summary
 
 Examples:
-  devlog summary
-  devlog summary --style formal
-  devlog summary --week --style detailed
-  devlog summary --ai --style impersonal`,
+  devlog summary create
+  devlog summary create --style formal
+  devlog summary create --week --style detailed
+  devlog summary create --ai --style impersonal
+  devlog summary list
+  devlog summary list --week
+  devlog summary list --from 2026-04-01 --to 2026-04-14
+  devlog summary show
+  devlog summary show --date 2026-04-13
+`,
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("summary called")
 	},

@@ -1,18 +1,53 @@
-# DevLog CLI
+# DevLog
+
+![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8?logo=go)
+![Latest Release](https://img.shields.io/github/v/release/gustmrg/devlog)
+![License](https://img.shields.io/github/license/gustmrg/devlog)
 
 A command-line tool for developers to track daily activities and generate formatted timesheet summaries.
 
 ---
 
-## What it does
+## Features
 
-DevLog acts as a developer memory system. You log activities throughout the day as you work, then generate a structured summary at the end of your session — ready to paste into a timesheet.
+- Log activities with project, tags, and duration as you work
+- Generate structured summaries ready to paste into a timesheet
+- Multiple output styles: concise, detailed, formal, impersonal
+- AI-powered narrative polish via OpenRouter (opt-in)
+- Filter entries by date, week, project, or tag
+- All data stored locally — no account required
+
+---
+
+## Quick Start
+
+```bash
+# Log an activity
+devlog add "Fixed pagination bug on transactions list" -p bitfinance -t frontend -d 30
+
+# Log interactively
+devlog add -i
+
+# View today's entries
+devlog list
+
+# Generate today's summary
+devlog summary create
+
+# Generate an AI-polished summary in formal style
+devlog summary create --ai --style formal
+
+# List all generated summaries
+devlog summary list
+
+# View a specific summary
+devlog summary show --date 2026-04-13
+```
+
+**Example output:**
 
 ```
-$ devlog add "Implemented JWT auth middleware" -p echo -t backend,auth -d 45
-✔ Entry added (id: a1b2c3d4)
-
-$ devlog summary --style concise
+$ devlog summary create --style concise
 
 ## 2026-04-14 — 2h 30min
 
@@ -61,33 +96,6 @@ Initialize the data directory:
 
 ```bash
 devlog init
-```
-
----
-
-## Quick Start
-
-```bash
-# Log an activity
-devlog add "Fixed pagination bug on transactions list" -p bitfinance -t frontend -d 30
-
-# Log interactively
-devlog add -i
-
-# View today's entries
-devlog list
-
-# Generate today's summary
-devlog summary create
-
-# Generate an AI-polished summary in formal style
-devlog summary create --ai --style formal
-
-# List all generated summaries
-devlog summary list
-
-# View a specific summary
-devlog summary show --date 2026-04-13
 ```
 
 ---
@@ -231,7 +239,7 @@ devlog config list
 
 | Key | Description |
 |---|---|
-| `defaultProject` | Default project when `-p` is omitted on `devlog entry add` |
+| `defaultProject` | Default project when `-p` is omitted on `devlog add` |
 | `style` | Default summary style |
 | `language` | Output language for AI summaries (e.g. `pt-BR`, `en-US`) |
 | `llm.enabled` | Enable or disable AI-powered summaries (`true` / `false`) |
@@ -252,8 +260,6 @@ devlog config list
 ---
 
 ## Summary Styles
-
-Styles control how summaries are formatted. They work with both template-based and AI-enhanced generation.
 
 | Style | Description |
 |---|---|
@@ -316,7 +322,7 @@ Configuration is stored at `~/.devlog/config.json`.
   "llm": {
     "enabled": false,
     "provider": "openrouter",
-    "model": "openai/gpt-oss-120b:free",
+    "model": "openai/gpt-4o-mini",
     "apiKeyEnvVar": "OPENROUTER_API_KEY"
   },
   "reminder": {
@@ -339,7 +345,7 @@ Configuration is stored at `~/.devlog/config.json`.
 
 ### LLM Integration
 
-devlog supports AI-powered summary generation via [OpenRouter](https://openrouter.ai), which gives you access to multiple models through a single API key.
+DevLog supports AI-powered summary generation via [OpenRouter](https://openrouter.ai), which gives you access to multiple models through a single API key.
 
 **1. Get an API key** at [openrouter.ai/keys](https://openrouter.ai/keys)
 
@@ -356,18 +362,14 @@ echo 'export OPENROUTER_API_KEY=sk-or-xxx' >> ~/.zshrc
 source ~/.zshrc
 ```
 
-**3. Enable LLM in config** (`~/.devlog/config.json`):
+**3. Enable LLM in config:**
 
-```json
-"llm": {
-  "enabled": true,
-  "provider": "openrouter",
-  "model": "openai/gpt-4o-mini",
-  "apiKeyEnvVar": "OPENROUTER_API_KEY"
-}
+```bash
+devlog config set llm.enabled true
+devlog config set llm.model "openai/gpt-4o-mini"
 ```
 
-You can browse available models at [openrouter.ai/models](https://openrouter.ai/models) and set your preferred one via `llm.model`.
+You can browse available models at [openrouter.ai/models](https://openrouter.ai/models).
 
 ---
 
@@ -394,6 +396,10 @@ Entries are stored as JSON (one file per day) and summaries are saved as Markdow
 
 ## Built With
 
-- [Go](https://go.dev/)
+- [Go](https://go.dev/) — Language
 - [cobra](https://github.com/spf13/cobra) — CLI framework
 - [viper](https://github.com/spf13/viper) — Configuration management
+- [fatih/color](https://github.com/fatih/color) — Colored terminal output
+- [google/uuid](https://github.com/google/uuid) — Entry ID generation
+- [go-yaml](https://github.com/go-yaml/yaml) — YAML parsing for summary frontmatter
+- [GoReleaser](https://goreleaser.com) — Cross-platform release automation

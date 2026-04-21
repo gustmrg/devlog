@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"devlog/cmd/entry"
+	"devlog/cmd/summary"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -38,6 +39,7 @@ func init() {
 	cobra.OnInitialize(initConfig)
 
 	RootCmd.AddCommand(entry.EntryCmd)
+	RootCmd.AddCommand(summary.SummaryCmd)
 	RootCmd.CompletionOptions.DisableDefaultCmd = true
 }
 

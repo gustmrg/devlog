@@ -30,6 +30,22 @@ $ devlog summary --style concise
 
 ## Installation
 
+### Download binary (recommended)
+
+Download the latest release for your platform from the [releases page](https://github.com/gustmrg/devlog/releases).
+
+**macOS / Linux:**
+
+```bash
+# Extract and move to PATH (adjust filename for your platform/version)
+tar -xzf devlog_<version>_darwin_arm64.tar.gz
+mv devlog /usr/local/bin/
+```
+
+**Windows:** download the `.zip`, extract `devlog.exe`, and add it to your `PATH`.
+
+### Build from source
+
 **Prerequisites:** [Go](https://go.dev/dl/) 1.21+ must be installed.
 
 ```bash
@@ -39,7 +55,9 @@ go build -o bin/devlog .
 mv bin/devlog /usr/local/bin/
 ```
 
-Then initialize the data directory:
+### Post-install
+
+Initialize the data directory:
 
 ```bash
 devlog init

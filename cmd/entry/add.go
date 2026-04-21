@@ -14,8 +14,6 @@ import (
 	"github.com/spf13/viper"
 )
 
-var date string
-
 var addCmd = &cobra.Command{
 	Use:   "add",
 	Short: "Log a new activity entry",
@@ -62,7 +60,7 @@ Examples:
 
 		var tags []string
 		if rawTags, _ := cmd.Flags().GetString("tags"); rawTags != "" {
-			for _, t := range strings.Split(rawTags, ",") {
+			for t := range strings.SplitSeq(rawTags, ",") {
 				if trimmed := strings.TrimSpace(t); trimmed != "" {
 					tags = append(tags, trimmed)
 				}

@@ -2,6 +2,8 @@ package entry
 
 import "github.com/spf13/cobra"
 
+var date string
+
 var EntryCmd = &cobra.Command{
 	Use:   "entry",
 	Short: "Manage log entries",

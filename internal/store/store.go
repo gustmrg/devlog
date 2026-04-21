@@ -1,11 +1,52 @@
 package store
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/spf13/viper"
 )
+
+type DailyLog struct {
+	Date    string  `json:"date"`
+	Entries []Entry `json:"entries"`
+}
+
+type Entry struct {
+	Id          string    `json:"id"`
+	Project     string    `json:"project"`
+	Description string    `json:"description"`
+	Tags        []string  `json:"tags"`
+	CreatedAt   time.Time `json:"createdAt"`
+}
+
+func LoadDailyLog(filePath string) (DailyLog, error) {
+	data, err := os.ReadFile(filePath)
+	if os.IsNotExist(err) {
+		return DailyLog{}, nil
+	}
+	if err != nil {
+		return DailyLog{}, fmt.Errorf("error reading log file: %w", err)
+	}
+	var log DailyLog
+	if err := json.Unmarshal(data, &log); err != nil {
+		return DailyLog{}, fmt.Errorf("error parsing log file: %w", err)
+	}
+	return log, nil
+}
+
+func SaveDailyLog(filePath string, log DailyLog) error {
+	data, err := json.MarshalIndent(log, "", "  ")
+	if err != nil {
+		return fmt.Errorf("error encoding log: %w", err)
+	}
+	if err := os.WriteFile(filePath, data, 0644); err != nil {
+		return fmt.Errorf("error writing log file: %w", err)
+	}
+	return nil
+}
 
 func Init() error {
 	path, err := ConfigPath()
@@ -21,7 +62,7 @@ func Init() error {
 	viper.SetConfigName("config")
 	viper.SetConfigType("json")
 
-	viper.Set("defaults.project", "")
+	viper.Set("defaults.project", "default")
 	viper.Set("defaults.style", "concise")
 	viper.Set("defaults.language", "pt-BR")
 	viper.Set("llm.enabled", false)

@@ -162,22 +162,32 @@ devlog summary --ai --style impersonal
 
 ### `devlog config`
 
-Reads and writes configuration values.
-
-| Option | Description |
-|---|---|
-| `--model <model>` | Set the LLM model (e.g. `openai/gpt-4o-mini`) |
-| `--llm-enabled <bool>` | Enable or disable AI-powered summaries (`true` / `false`) |
-| `--language <code>` | Set the output language (e.g. `pt-BR`, `en-US`) |
-| `--style <style>` | Set the default summary style |
-| `--list` | Print all current config values |
+Reads and writes configuration values using `set`, `get`, and `list` subcommands.
 
 ```bash
-devlog config --model "openai/gpt-4o-mini"
-devlog config --llm-enabled true
-devlog config --language en-US
-devlog config --style formal
-devlog config --list
+devlog config set <key> <value>
+devlog config get <key>
+devlog config list
+```
+
+| Key | Description |
+|---|---|
+| `defaultProject` | Default project when `-p` is omitted on `devlog entry add` |
+| `style` | Default summary style |
+| `language` | Output language for AI summaries (e.g. `pt-BR`, `en-US`) |
+| `llm.enabled` | Enable or disable AI-powered summaries (`true` / `false`) |
+| `llm.model` | LLM model to use (e.g. `openai/gpt-4o-mini`) |
+| `llm.provider` | LLM provider (e.g. `openrouter`) |
+| `llm.apiKeyEnvVar` | Environment variable holding the API key |
+
+```bash
+devlog config set defaultProject myapp
+devlog config set language en-US
+devlog config set style formal
+devlog config set llm.enabled true
+devlog config set llm.model "openai/gpt-4o-mini"
+devlog config get defaultProject
+devlog config list
 ```
 
 ---
@@ -196,7 +206,7 @@ Styles control how summaries are formatted. They work with both template-based a
 Set a default style so you never have to type it:
 
 ```bash
-devlog config --set defaults.style concise
+devlog config set style concise
 ```
 
 ---
@@ -212,7 +222,7 @@ When you pass `--ai`, DevLog groups your entries and sends them to an LLM, which
 export OPENROUTER_API_KEY=sk-or-xxx
 
 # Enable AI in config
-devlog config --llm-enabled true
+devlog config set llm.enabled true
 ```
 
 **Example:**

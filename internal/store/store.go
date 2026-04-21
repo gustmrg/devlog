@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/spf13/viper"
+	"go.yaml.in/yaml/v3"
 )
 
 type DailyLog struct {
@@ -21,6 +23,26 @@ type Entry struct {
 	Description string    `json:"description"`
 	Tags        []string  `json:"tags"`
 	CreatedAt   time.Time `json:"createdAt"`
+}
+
+type Summary struct {
+	ID string // "2026-04-21", used as filename
+	Date time.Time
+	Projects []ProjectGroup
+	Style string
+	AIGenerated bool
+	Content string
+}
+
+type SummaryMeta struct {
+    Date     string `yaml:"date"`
+    Style    string `yaml:"style"`
+    Projects string `yaml:"projects"`
+}
+
+type ProjectGroup struct {
+	Name string
+	Entries []Entry
 }
 
 func LoadDailyLog(filePath string) (DailyLog, error) {
@@ -47,6 +69,46 @@ func SaveDailyLog(filePath string, log DailyLog) error {
 		return fmt.Errorf("error writing log file: %w", err)
 	}
 	return nil
+}
+
+func LoadSummary(filePath string) (Summary, error) {
+	data, err := os.ReadFile(filePath)
+	if os.IsNotExist(err) {
+		return Summary{}, nil
+	}
+	if err != nil {
+		return Summary{}, fmt.Errorf("error reading summary file: %w", err)
+	}
+
+	parts := strings.SplitN(string(data), "---", 3)
+	if len(parts) < 3 {
+		return Summary{}, fmt.Errorf("invalid summary file: missing frontmatter")
+	}
+
+	var meta SummaryMeta
+	if err := yaml.Unmarshal([]byte(parts[1]), &meta); err != nil {
+		return Summary{}, fmt.Errorf("error parsing summary frontmatter: %w", err)
+	}
+
+	date, err := time.Parse("2006-01-02", meta.Date)
+	if err != nil {
+		return Summary{}, fmt.Errorf("invalid date in summary: %w", err)
+	}
+
+	var projects []ProjectGroup
+	for p := range strings.SplitSeq(meta.Projects, ",") {
+		if name := strings.TrimSpace(p); name != "" {
+			projects = append(projects, ProjectGroup{Name: name})
+		}
+	}
+
+	return Summary{
+		ID:       meta.Date,
+		Date:     date,
+		Style:    meta.Style,
+		Projects: projects,
+		Content:  strings.TrimSpace(parts[2]),
+	}, nil
 }
 
 func Init() error {

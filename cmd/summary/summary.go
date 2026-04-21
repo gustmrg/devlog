@@ -4,12 +4,11 @@ Copyright © 2026 NAME HERE <EMAIL ADDRESS>
 package summary
 
 import (
-	"fmt"
-
 	"github.com/spf13/cobra"
 )
 
-// summaryCmd represents the summary command
+var date string
+
 var SummaryCmd = &cobra.Command{
 	Use:   "summary",
 	Short: "Create and view summaries of logged entries",
@@ -31,9 +30,6 @@ Examples:
   devlog summary show
   devlog summary show --date 2026-04-13
 `,
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("summary called")
-	},
 }
 
 func init() {

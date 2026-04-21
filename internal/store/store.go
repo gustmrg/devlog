@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/spf13/viper"
@@ -83,5 +84,5 @@ func ConfigPath() (string, error) {
 		return "", fmt.Errorf("fatal error could not find home directory: %w", err)
 	}
 
-	return home + "/.devlog", nil
+	return filepath.Join(home, ".devlog"), nil
 }

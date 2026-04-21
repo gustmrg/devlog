@@ -12,6 +12,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var (
+	headerColor  = color.New(color.FgCyan, color.Bold)
+	projectColor = color.New(color.FgGreen, color.Bold)
+	dimColor     = color.New(color.FgHiBlack)
+	tagColor     = color.New(color.FgMagenta)
+)
+
 var listCmd = &cobra.Command{
 	Use:   "list",
 	Short: "Display logged entries with optional filters",
@@ -29,10 +36,6 @@ Examples:
   devlog entry list --project echo
   devlog entry list --date 2026-04-13`,
 	Run: func(cmd *cobra.Command, args []string) {
-		
-		// get directory and validate if it exists
-		// get flag date and try to parse
-		// get all the entries then filter
 		home, err := store.ConfigPath()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s %s\n", color.RedString("✗"), err)
@@ -40,13 +43,9 @@ Examples:
 		}
 
 		entriesDir := filepath.Join(home, "entries")
-		if err := os.MkdirAll(entriesDir, 0755); err != nil {
-			fmt.Fprintf(os.Stderr, "%s could not create entries directory: %s\n", color.RedString("✗"), err)
-			return
-		}
 
-		logDate := ""
 		today := time.Now().Format("2006-01-02")
+		logDate := today
 
 		if date != "" {
 			parsedDate, err := time.Parse("2006-01-02", date)
@@ -54,15 +53,11 @@ Examples:
 				fmt.Fprintf(os.Stderr, "%s invalid date format, expected YYYY-MM-DD\n", color.RedString("✗"))
 				return
 			}
-
 			logDate = parsedDate.Format("2006-01-02")
-		} else {
-			logDate = today
 		}
 
-		// add rule to get all entries if the date was not passed
-		logFile := filepath.Join(entriesDir, logDate + ".json")
-		
+		logFile := filepath.Join(entriesDir, logDate+".json")
+
 		dailyLog, err := store.LoadDailyLog(logFile)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s %s\n", color.RedString("✗"), err)
@@ -72,23 +67,41 @@ Examples:
 		entries := dailyLog.Entries
 
 		if len(entries) == 0 {
+			label := logDate
 			if logDate == today {
-				fmt.Printf("No entries for today\n")	
-				return
-			} else {
-				fmt.Printf("No entries for %s\n", logDate)
-				return
+				label = "today"
 			}
+			fmt.Printf("%s No entries for %s\n", dimColor.Sprint("·"), label)
+			return
 		}
 
-		fmt.Printf("%s\n", dailyLog.Date)
-		for index := range entries {
-			fmt.Printf("- %s: %s\n", entries[index].Project, entries[index].Description)
-			
-			if len(entries[index].Tags) > 0 {
-				fmt.Printf("tags: %s\n", strings.Join(entries[index].Tags, ", "))
-			} 
+		t, _ := time.Parse("2006-01-02", logDate)
+		separator := dimColor.Sprint(strings.Repeat("─", 52))
+
+		fmt.Printf("\n  %s\n", headerColor.Sprint(t.Format("Monday, January 2 · 2006")))
+		fmt.Printf("  %s\n\n", separator)
+
+		for i, e := range entries {
+			idx := dimColor.Sprintf("%2d", i+1)
+			project := projectColor.Sprintf("%-14s", e.Project)
+			fmt.Printf("  %s  %s  %s\n", idx, project, e.Description)
+
+			var meta []string
+			for _, tag := range e.Tags {
+				meta = append(meta, tagColor.Sprintf("#%s", tag))
+			}
+			meta = append(meta, dimColor.Sprint(e.CreatedAt.Format("3:04 PM")))
+
+			indent := strings.Repeat(" ", 22)
+			fmt.Printf("  %s%s\n\n", indent, strings.Join(meta, "  "))
 		}
+
+		fmt.Printf("  %s\n", separator)
+		noun := "entry"
+		if len(entries) != 1 {
+			noun = "entries"
+		}
+		fmt.Printf("  %s\n\n", dimColor.Sprintf("%d %s", len(entries), noun))
 	},
 }
 

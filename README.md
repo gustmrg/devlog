@@ -1,98 +1,92 @@
 # DevLog
 
-![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8?logo=go)
+![Go Version](https://img.shields.io/badge/Go-1.26+-00ADD8?logo=go)
 ![Latest Release](https://img.shields.io/github/v/release/gustmrg/devlog)
 ![License](https://img.shields.io/github/license/gustmrg/devlog)
 
-A command-line tool for developers to track daily activities and generate formatted timesheet summaries.
+A small command-line tool for developers to record daily work notes and generate simple Markdown summaries.
+
+DevLog is intended to be useful both directly from the terminal and through coding-agent harnesses such as Pi, OpenCode, or similar tools. The CLI remains the source of truth; agent integrations can call the CLI to log work or create summaries.
 
 ---
 
-## Features
+## Current Features
 
-- Log activities with project, tags, and duration as you work
-- Generate structured summaries ready to paste into a timesheet
-- Multiple output styles: concise, detailed, formal, impersonal
-- AI-powered narrative polish via OpenRouter (opt-in)
-- Filter entries by date, week, project, or tag
-- All data stored locally — no account required
+- Initialize a local `~/.devlog/config.json`
+- Add dated activity entries with project and tags
+- List entries for a specific day
+- Generate a basic Markdown summary for a specific day
+- Show a previously generated summary
+- Store all data locally under `~/.devlog/`
 
 ---
 
 ## Quick Start
 
 ```bash
-# Log an activity
-devlog add "Fixed pagination bug on transactions list" -p bitfinance -t frontend -d 30
+# Initialize DevLog data/config
+devlog init
 
-# Log interactively
-devlog add -i
+# Log an activity
+devlog entry add "Fixed pagination bug on transactions list" -p bitfinance -t frontend --date 2026-04-14
 
 # View today's entries
-devlog list
+devlog entry list
+
+# View entries for a specific day
+devlog entry list --date 2026-04-14
 
 # Generate today's summary
 devlog summary create
 
-# Generate an AI-polished summary in formal style
-devlog summary create --ai --style formal
+# Generate a summary for a specific day
+devlog summary create --date 2026-04-14
 
-# List all generated summaries
-devlog summary list
-
-# View a specific summary
-devlog summary show --date 2026-04-13
+# Show a saved summary
+devlog summary show --date 2026-04-14
 ```
 
-**Example output:**
+Example summary output:
 
-```
-$ devlog summary create --style concise
+```md
+---
+date: 2026-04-14
+style: concise
+projects: Echo, BitFinance
+---
+**Echo**
+- Implemented JWT auth middleware
+- Built refresh token rotation logic
 
-## 2026-04-14 — 2h 30min
-
-### Echo
-- Implemented JWT auth middleware (45min)
-- Built refresh token rotation logic (1h 15min)
-
-### BitFinance
-- Fixed budget category filter bug (30min)
-
-✔ Summary saved to ~/.devlog/summaries/2026-04-14.md
+**BitFinance**
+- Fixed budget category filter bug
 ```
 
 ---
 
 ## Installation
 
-### Download binary (recommended)
+### Download binary
 
 Download the latest release for your platform from the [releases page](https://github.com/gustmrg/devlog/releases).
 
-**macOS / Linux:**
-
-```bash
-# Extract and move to PATH (adjust filename for your platform/version)
-tar -xzf devlog_<version>_darwin_arm64.tar.gz
-mv devlog /usr/local/bin/
-```
-
-**Windows:** download the `.zip`, extract `devlog.exe`, and add it to your `PATH`.
-
 ### Build from source
 
-**Prerequisites:** [Go](https://go.dev/dl/) 1.21+ must be installed.
+Prerequisite: Go compatible with the version declared in `go.mod`.
 
 ```bash
 git clone https://github.com/gustmrg/devlog
 cd devlog
 go build -o bin/devlog .
+```
+
+Then move the binary somewhere in your `PATH`, for example:
+
+```bash
 mv bin/devlog /usr/local/bin/
 ```
 
-### Post-install
-
-Initialize the data directory:
+Initialize DevLog:
 
 ```bash
 devlog init
@@ -100,306 +94,213 @@ devlog init
 
 ---
 
+## Data Storage
+
+DevLog stores data locally under:
+
+```text
+~/.devlog/
+├── config.json
+├── entries/
+│   └── 2026-04-14.json
+└── summaries/
+    └── 2026-04-14.md
+```
+
+Entry files are JSON. Summary files are Markdown with YAML frontmatter.
+
+---
+
 ## Commands
 
 ### `devlog init`
 
-Creates the `~/.devlog/` directory structure and a default `config.json`. Safe to run multiple times — will not overwrite existing data.
+Creates the `~/.devlog/` directory and a default `config.json`.
+
+```bash
+devlog init
+```
+
+Current note: this command uses safe config creation and will not overwrite an existing config file.
 
 ---
 
-### `devlog add`
+### `devlog entry add`
 
 Logs a new activity entry.
 
+```bash
+devlog entry add <description> [options]
 ```
-devlog add <description> [options]
-```
+
+Options currently implemented:
 
 | Option | Short | Description |
-|---|---|---|
-| `--project <name>` | `-p` | Project name (uses config default if omitted) |
-| `--tags <list>` | `-t` | Comma-separated tags |
-| `--duration <minutes>` | `-d` | Time spent in minutes |
-| `--date <YYYY-MM-DD>` | | Override date (defaults to today) |
-| `-i` | | Interactive mode — prompts for each field |
+|---|---:|---|
+| `--project <name>` | `-p` | Project name. Uses `defaults.project` from config if omitted. |
+| `--tags <list>` | `-t` | Comma-separated tags. |
+| `--date <YYYY-MM-DD>` | | Override entry date. Defaults to today. |
+
+Examples:
 
 ```bash
-devlog add "Implemented refresh token rotation" -p echo -t backend,auth -d 75
-devlog add -i
+devlog entry add "Implemented refresh token rotation" -p echo -t backend,auth
+devlog entry add "Reviewed checkout API" -p shop --date 2026-04-14
 ```
 
 ---
 
-### `devlog list`
+### `devlog entry list`
 
-Displays logged entries with optional filters.
-
-| Option | Short | Description |
-|---|---|---|
-| `--date <YYYY-MM-DD>` | | Show entries for a specific date |
-| `--week` | `-w` | Show entries for the current week |
-| `--project <name>` | `-p` | Filter by project |
-| `--tag <name>` | | Filter by tag |
+Displays entries for today or for a specific date.
 
 ```bash
-devlog list
-devlog list --week
-devlog list --project echo
-devlog list --date 2026-04-13
+devlog entry list [options]
 ```
 
----
+Options currently implemented:
 
-### `devlog edit <id>`
+| Option | Description |
+|---|---|
+| `--date <YYYY-MM-DD>` | Show entries for a specific date. Defaults to today. |
 
-Opens an interactive prompt to modify an existing entry. Current values are shown as defaults — press Enter to keep them.
-
-```bash
-devlog edit a1b2c3d4
-```
-
----
-
-### `devlog delete <id>`
-
-Removes an entry after confirmation.
+Examples:
 
 ```bash
-devlog delete a1b2c3d4
+devlog entry list
+devlog entry list --date 2026-04-14
 ```
 
 ---
 
 ### `devlog summary create`
 
-Generates a structured summary from logged entries and saves it to `~/.devlog/summaries/`.
+Generates a basic Markdown summary from logged entries and saves it to `~/.devlog/summaries/`.
 
-| Option | Short | Description |
-|---|---|---|
-| `--date <YYYY-MM-DD>` | | Summarize a specific date (defaults to today) |
-| `--week` | `-w` | Generate a weekly summary |
-| `--style <style>` | `-s` | Output style (see [Summary Styles](#summary-styles)) |
-| `--ai` | | Use an LLM to produce a polished narrative |
-| `--format <template>` | `-f` | Template from `~/.devlog/templates/` |
+```bash
+devlog summary create [options]
+```
+
+Options currently implemented:
+
+| Option | Description |
+|---|---|
+| `--date <YYYY-MM-DD>` | Summarize a specific date. Defaults to today. |
+
+Examples:
 
 ```bash
 devlog summary create
-devlog summary create --style formal
-devlog summary create --week --style detailed
-devlog summary create --ai --style impersonal
-```
-
----
-
-### `devlog summary list`
-
-Lists previously generated summaries from `~/.devlog/summaries/`.
-
-| Option | Short | Description |
-|---|---|---|
-| `--week` | `-w` | Show summaries from the current week |
-| `--month` | `-m` | Show summaries from the current month |
-| `--from <YYYY-MM-DD>` | | Start of date range |
-| `--to <YYYY-MM-DD>` | | End of date range |
-
-```bash
-devlog summary list
-devlog summary list --week
-devlog summary list --month
-devlog summary list --from 2026-04-01 --to 2026-04-14
+devlog summary create --date 2026-04-14
 ```
 
 ---
 
 ### `devlog summary show`
 
-Displays the contents of a previously generated summary.
+Displays a previously generated summary.
 
-| Option | Short | Description |
-|---|---|---|
-| `--date <YYYY-MM-DD>` | | Show summary for a specific date (defaults to today) |
+```bash
+devlog summary show [options]
+```
+
+Options currently implemented:
+
+| Option | Description |
+|---|---|
+| `--date <YYYY-MM-DD>` | Show summary for a specific date. Defaults to today. |
+
+Examples:
 
 ```bash
 devlog summary show
-devlog summary show --date 2026-04-13
+devlog summary show --date 2026-04-14
 ```
-
----
-
-### `devlog config`
-
-Reads and writes configuration values using `set`, `get`, and `list` subcommands.
-
-```bash
-devlog config set <key> <value>
-devlog config get <key>
-devlog config list
-```
-
-| Key | Description |
-|---|---|
-| `defaultProject` | Default project when `-p` is omitted on `devlog add` |
-| `style` | Default summary style |
-| `language` | Output language for AI summaries (e.g. `pt-BR`, `en-US`) |
-| `llm.enabled` | Enable or disable AI-powered summaries (`true` / `false`) |
-| `llm.model` | LLM model to use (e.g. `openai/gpt-4o-mini`) |
-| `llm.provider` | LLM provider (e.g. `openrouter`) |
-| `llm.apiKeyEnvVar` | Environment variable holding the API key |
-
-```bash
-devlog config set defaultProject myapp
-devlog config set language en-US
-devlog config set style formal
-devlog config set llm.enabled true
-devlog config set llm.model "openai/gpt-4o-mini"
-devlog config get defaultProject
-devlog config list
-```
-
----
-
-## Summary Styles
-
-| Style | Description |
-|---|---|
-| `concise` | One line per activity, minimal detail. Best for quick timesheet entries. |
-| `detailed` | Full breakdown with durations, tags, and timestamps. |
-| `formal` | Third-person, complete sentences. Suitable for corporate timesheets. |
-| `impersonal` | Passive voice, no pronouns. Common in consulting contexts. |
-
-Set a default style so you never have to type it:
-
-```bash
-devlog config set style concise
-```
-
----
-
-## AI-Enhanced Summaries
-
-When you pass `--ai`, DevLog groups your entries and sends them to an LLM, which rewrites them as a polished narrative according to the chosen style.
-
-**Setup:**
-
-```bash
-# Set your OpenRouter API key as an environment variable
-export OPENROUTER_API_KEY=sk-or-xxx
-
-# Enable AI in config
-devlog config set llm.enabled true
-```
-
-**Example:**
-
-```
-$ devlog summary create --ai --style formal
-
-## 2026-04-14 — 2h 30min
-
-Worked on authentication infrastructure for the Echo project, implementing JWT
-middleware with role-based claims and secure refresh token rotation. Additionally,
-resolved a filtering defect in the BitFinance budget module.
-
-✔ Summary saved to ~/.devlog/summaries/2026-04-14.md
-```
-
-Without `--ai`, summaries are generated instantly from a template — no API key required.
 
 ---
 
 ## Configuration
 
-Configuration is stored at `~/.devlog/config.json`.
+Configuration is stored at:
+
+```text
+~/.devlog/config.json
+```
+
+Default shape:
 
 ```json
 {
   "defaults": {
-    "project": "",
+    "project": "default",
     "style": "concise",
     "language": "pt-BR"
   },
   "llm": {
     "enabled": false,
     "provider": "openrouter",
-    "model": "openai/gpt-4o-mini",
+    "model": "openai/gpt-oss-120b:free",
     "apiKeyEnvVar": "OPENROUTER_API_KEY"
-  },
-  "reminder": {
-    "enabled": false,
-    "time": "18:00"
   }
 }
 ```
 
-| Key | Description |
-|---|---|
-| `defaults.project` | Default project when `--project` is omitted |
-| `defaults.style` | Default summary style |
-| `defaults.language` | Language for AI-generated summaries (e.g. `pt-BR`, `en-US`) |
-| `llm.enabled` | Enable AI-powered summary generation |
-| `llm.model` | LLM model to use |
-| `llm.apiKeyEnvVar` | Environment variable holding the API key |
-| `reminder.enabled` | Enable end-of-day reminder notifications |
-| `reminder.time` | Time to trigger reminder (HH:MM) |
-
-### LLM Integration
-
-DevLog supports AI-powered summary generation via [OpenRouter](https://openrouter.ai), which gives you access to multiple models through a single API key.
-
-**1. Get an API key** at [openrouter.ai/keys](https://openrouter.ai/keys)
-
-**2. Set the environment variable** in your shell:
-
-```sh
-export OPENROUTER_API_KEY=sk-or-xxx
-```
-
-Add it to `~/.zshrc` (or `~/.bashrc`) to make it permanent:
-
-```sh
-echo 'export OPENROUTER_API_KEY=sk-or-xxx' >> ~/.zshrc
-source ~/.zshrc
-```
-
-**3. Enable LLM in config:**
-
-```bash
-devlog config set llm.enabled true
-devlog config set llm.model "openai/gpt-4o-mini"
-```
-
-You can browse available models at [openrouter.ai/models](https://openrouter.ai/models).
+The config command interface is planned but not fully implemented yet.
 
 ---
 
-## Data Storage
+## Planned Features
 
-All data is stored locally under `~/.devlog/`.
+The following features are planned or partially scaffolded, but should not be treated as stable yet.
 
-```
-~/.devlog/
-├── config.json
-├── entries/
-│   ├── 2026-04-13.json
-│   └── 2026-04-14.json
-├── summaries/
-│   ├── 2026-04-13.md
-│   └── 2026-04-14.md
-└── templates/
-    └── timesheet.md
-```
+### Entry Management
 
-Entries are stored as JSON (one file per day) and summaries are saved as Markdown.
+- `devlog entry add --duration <minutes>` / `-d <minutes>`
+- `devlog entry add -i` interactive entry creation
+- `devlog entry edit <id>`
+- `devlog entry delete <id>`
+- `devlog entry list --week`
+- `devlog entry list --project <name>`
+- `devlog entry list --tag <name>`
+
+### Summaries
+
+- `devlog summary list`
+- `devlog summary list --week`
+- `devlog summary list --month`
+- `devlog summary list --from <YYYY-MM-DD> --to <YYYY-MM-DD>`
+- `devlog summary create --week`
+- `devlog summary create --style concise|detailed|formal|impersonal`
+- `devlog summary create --format <template>`
+- summary templates from `~/.devlog/templates/`
+
+### Configuration
+
+- `devlog config list`
+- `devlog config get <key>`
+- `devlog config set <key> <value>`
+
+### AI-Enhanced Summaries
+
+- `devlog summary create --ai`
+- optional LLM narrative polishing
+- support for configured provider/model/API key
+- output language based on config, e.g. `pt-BR` or `en-US`
 
 ---
 
 ## Built With
 
-- [Go](https://go.dev/) — Language
+- [Go](https://go.dev/) — language
 - [cobra](https://github.com/spf13/cobra) — CLI framework
-- [viper](https://github.com/spf13/viper) — Configuration management
-- [fatih/color](https://github.com/fatih/color) — Colored terminal output
-- [google/uuid](https://github.com/google/uuid) — Entry ID generation
-- [go-yaml](https://github.com/go-yaml/yaml) — YAML parsing for summary frontmatter
-- [GoReleaser](https://goreleaser.com) — Cross-platform release automation
+- [viper](https://github.com/spf13/viper) — configuration
+- [fatih/color](https://github.com/fatih/color) — terminal colors
+- [google/uuid](https://github.com/google/uuid) — entry IDs
+- [go-yaml](https://github.com/go-yaml/yaml) — summary frontmatter parsing
+- [GoReleaser](https://goreleaser.com) — release automation
+
+---
+
+## License
+
+MIT

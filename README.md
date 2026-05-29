@@ -17,6 +17,7 @@ DevLog is intended to be useful both directly from the terminal and through codi
 - List entries for a specific day
 - Generate a basic Markdown summary for a specific day
 - Show a previously generated summary
+- List previously generated summaries with date-range filters
 - Store all data locally under `~/.devlog/`
 
 ---
@@ -200,6 +201,34 @@ devlog summary create --date 2026-04-14
 
 ---
 
+### `devlog summary list`
+
+Lists previously generated summaries. With no flags, shows summaries from the current week.
+
+```bash
+devlog summary list [options]
+```
+
+Options currently implemented:
+
+| Option | Short | Description |
+|---|---:|---|
+| `--week` | `-w` | Show summaries from the current week (Monday–Sunday). This is the default when no flag is given. |
+| `--month` | `-m` | Show summaries from the current month. |
+| `--from <YYYY-MM-DD>` | | Start of date range. |
+| `--to <YYYY-MM-DD>` | | End of date range. |
+
+Examples:
+
+```bash
+devlog summary list
+devlog summary list --week
+devlog summary list --month
+devlog summary list --from 2026-04-01 --to 2026-04-14
+```
+
+---
+
 ### `devlog summary show`
 
 Displays a previously generated summary.
@@ -269,10 +298,6 @@ The following features are planned or partially scaffolded, but should not be tr
 
 ### Summaries
 
-- `devlog summary list`
-- `devlog summary list --week`
-- `devlog summary list --month`
-- `devlog summary list --from <YYYY-MM-DD> --to <YYYY-MM-DD>`
 - `devlog summary create --week`
 - `devlog summary create --style concise|detailed|formal|impersonal`
 - `devlog summary create --format <template>`

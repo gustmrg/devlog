@@ -29,7 +29,9 @@ var (
 	}
 )
 
-func Execute() {
+func Execute(version, commit, date string) {
+	setVersionInfo(version, commit, date)
+
 	err := RootCmd.Execute()
 	if err != nil {
 		os.Exit(1)
@@ -43,6 +45,8 @@ func init() {
 	RootCmd.AddCommand(entry.NewAddCmd())
 	RootCmd.AddCommand(entry.NewListCmd())
 	RootCmd.AddCommand(summary.SummaryCmd)
+	RootCmd.AddCommand(versionCmd)
+	RootCmd.AddCommand(updateCmd)
 	RootCmd.CompletionOptions.DisableDefaultCmd = true
 }
 

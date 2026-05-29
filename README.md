@@ -19,6 +19,7 @@ DevLog is intended to be useful both directly from the terminal and through codi
 - Show a previously generated summary
 - List previously generated summaries with date-range filters
 - Store all data locally under `~/.devlog/`
+- Report version/build info and self-update from GitHub releases
 
 ---
 
@@ -248,6 +249,52 @@ Examples:
 ```bash
 devlog summary show
 devlog summary show --date 2026-04-14
+```
+
+---
+
+### `devlog version`
+
+Prints the installed version, commit, and build date.
+
+```bash
+devlog version [options]
+```
+
+Options currently implemented:
+
+| Option | Description |
+|---|---|
+| `--check` | Also query GitHub and report whether a newer release is available. |
+
+Examples:
+
+```bash
+devlog version
+devlog version --check
+```
+
+---
+
+### `devlog update`
+
+Checks GitHub for a newer release and, if found, downloads it, verifies its checksum, and replaces the running binary in place.
+
+```bash
+devlog update [options]
+```
+
+Options currently implemented:
+
+| Option | Short | Description |
+|---|---:|---|
+| `--yes` | `-y` | Skip the confirmation prompt. |
+
+Examples:
+
+```bash
+devlog update
+devlog update --yes
 ```
 
 ---

@@ -2,8 +2,6 @@ package entry
 
 import "github.com/spf13/cobra"
 
-var date string
-
 var EntryCmd = &cobra.Command{
 	Use:   "entry",
 	Short: "Manage log entries",
@@ -11,6 +9,6 @@ var EntryCmd = &cobra.Command{
 }
 
 func init() {
-	EntryCmd.AddCommand(addCmd)
-	EntryCmd.AddCommand(listCmd)
+	EntryCmd.AddCommand(NewAddCmd())
+	EntryCmd.AddCommand(NewListCmd())
 }

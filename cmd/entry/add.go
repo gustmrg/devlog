@@ -14,10 +14,13 @@ import (
 	"github.com/spf13/viper"
 )
 
-var addCmd = &cobra.Command{
-	Use:   "add",
-	Short: "Log a new activity entry",
-	Long: `Logs a new activity entry to your devlog.
+func NewAddCmd() *cobra.Command {
+	var date string
+
+	addCmd := &cobra.Command{
+		Use:   "add <description>",
+		Short: "Log a new activity entry",
+		Long: `Logs a new activity entry to your devlog.
 
 Options:
   -p, --project <name>      Project name (uses config default if omitted)
@@ -26,77 +29,78 @@ Options:
   -i                        Interactive mode — prompts for each field
 
 Examples:
-  devlog entry add "Implemented refresh token rotation" -p echo -t backend,auth
-  devlog entry add -i`,
-	Args: cobra.MinimumNArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
-		home, err := store.ConfigPath()
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s %s\n", color.RedString("✗"), err)
-			return
-		}
-
-		entriesDir := filepath.Join(home, "entries")
-		if err := os.MkdirAll(entriesDir, 0755); err != nil {
-			fmt.Fprintf(os.Stderr, "%s could not create entries directory: %s\n", color.RedString("✗"), err)
-			return
-		}
-
-		var entryDate time.Time
-		if date == "" {
-			entryDate = time.Now()
-		} else {
-			entryDate, err = time.Parse("2006-01-02", date)
+  devlog add "Implemented refresh token rotation" -p echo -t backend,auth
+  devlog entry add "Reviewed checkout API" -p shop --date 2026-04-14`,
+		Args: cobra.MinimumNArgs(1),
+		Run: func(cmd *cobra.Command, args []string) {
+			home, err := store.ConfigPath()
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "%s invalid date format, expected YYYY-MM-DD\n", color.RedString("✗"))
+				fmt.Fprintf(os.Stderr, "%s %s\n", color.RedString("✗"), err)
 				return
 			}
-		}
 
-		project, _ := cmd.Flags().GetString("project")
-		if project == "" {
-			project = viper.GetString("defaults.project")
-		}
+			entriesDir := filepath.Join(home, "entries")
+			if err := os.MkdirAll(entriesDir, 0755); err != nil {
+				fmt.Fprintf(os.Stderr, "%s could not create entries directory: %s\n", color.RedString("✗"), err)
+				return
+			}
 
-		var tags []string
-		if rawTags, _ := cmd.Flags().GetString("tags"); rawTags != "" {
-			for t := range strings.SplitSeq(rawTags, ",") {
-				if trimmed := strings.TrimSpace(t); trimmed != "" {
-					tags = append(tags, trimmed)
+			var entryDate time.Time
+			if date == "" {
+				entryDate = time.Now()
+			} else {
+				entryDate, err = time.Parse("2006-01-02", date)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "%s invalid date format, expected YYYY-MM-DD\n", color.RedString("✗"))
+					return
 				}
 			}
-		}
 
-		entry := store.Entry{
-			Id:          uuid.NewString(),
-			Project:     project,
-			Description: strings.Join(args, " "),
-			Tags:        tags,
-			CreatedAt:   time.Now(),
-		}
+			project, _ := cmd.Flags().GetString("project")
+			if project == "" {
+				project = viper.GetString("defaults.project")
+			}
 
-		logFile := filepath.Join(entriesDir, entryDate.Format("2006-01-02")+".json")
+			var tags []string
+			if rawTags, _ := cmd.Flags().GetString("tags"); rawTags != "" {
+				for t := range strings.SplitSeq(rawTags, ",") {
+					if trimmed := strings.TrimSpace(t); trimmed != "" {
+						tags = append(tags, trimmed)
+					}
+				}
+			}
 
-		dailyLog, err := store.LoadDailyLog(logFile)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s %s\n", color.RedString("✗"), err)
-			return
-		}
-		dailyLog.Date = entryDate.Format("2006-01-02")
-		dailyLog.Entries = append(dailyLog.Entries, entry)
+			entry := store.Entry{
+				Id:          uuid.NewString(),
+				Project:     project,
+				Description: strings.Join(args, " "),
+				Tags:        tags,
+				CreatedAt:   time.Now(),
+			}
 
-		if err := store.SaveDailyLog(logFile, dailyLog); err != nil {
-			fmt.Fprintf(os.Stderr, "%s %s\n", color.RedString("✗"), err)
-			return
-		}
+			logFile := filepath.Join(entriesDir, entryDate.Format("2006-01-02")+".json")
 
-		fmt.Printf("%s new entry successfully added\n", color.GreenString("✔"))
-	},
-}
+			dailyLog, err := store.LoadDailyLog(logFile)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "%s %s\n", color.RedString("✗"), err)
+				return
+			}
+			dailyLog.Date = entryDate.Format("2006-01-02")
+			dailyLog.Entries = append(dailyLog.Entries, entry)
 
-func init() {
+			if err := store.SaveDailyLog(logFile, dailyLog); err != nil {
+				fmt.Fprintf(os.Stderr, "%s %s\n", color.RedString("✗"), err)
+				return
+			}
+
+			fmt.Printf("%s new entry successfully added\n", color.GreenString("✔"))
+		},
+	}
+
 	addCmd.Flags().StringP("project", "p", "", "Project name (uses config default if omitted)")
 	addCmd.Flags().StringP("tags", "t", "", "Comma-separated tags")
 	addCmd.Flags().StringVar(&date, "date", "", "Override date (YYYY-MM-DD, defaults to today)")
 	addCmd.Flags().BoolP("interactive", "i", false, "Interactive mode")
+
+	return addCmd
 }

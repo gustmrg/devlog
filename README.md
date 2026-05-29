@@ -28,13 +28,13 @@ DevLog is intended to be useful both directly from the terminal and through codi
 devlog init
 
 # Log an activity
-devlog entry add "Fixed pagination bug on transactions list" -p bitfinance -t frontend --date 2026-04-14
+devlog add "Fixed pagination bug on transactions list" -p bitfinance -t frontend --date 2026-04-14
 
 # View today's entries
-devlog entry list
+devlog list
 
 # View entries for a specific day
-devlog entry list --date 2026-04-14
+devlog list --date 2026-04-14
 
 # Generate today's summary
 devlog summary create
@@ -125,13 +125,15 @@ Current note: this command uses safe config creation and will not overwrite an e
 
 ---
 
-### `devlog entry add`
+### `devlog add`
 
 Logs a new activity entry.
 
 ```bash
-devlog entry add <description> [options]
+devlog add <description> [options]
 ```
+
+Equivalent explicit form: `devlog entry add <description> [options]`.
 
 Options currently implemented:
 
@@ -144,19 +146,21 @@ Options currently implemented:
 Examples:
 
 ```bash
-devlog entry add "Implemented refresh token rotation" -p echo -t backend,auth
-devlog entry add "Reviewed checkout API" -p shop --date 2026-04-14
+devlog add "Implemented refresh token rotation" -p echo -t backend,auth
+devlog add "Reviewed checkout API" -p shop --date 2026-04-14
 ```
 
 ---
 
-### `devlog entry list`
+### `devlog list`
 
 Displays entries for today or for a specific date.
 
 ```bash
-devlog entry list [options]
+devlog list [options]
 ```
+
+Equivalent explicit form: `devlog entry list [options]`.
 
 Options currently implemented:
 
@@ -167,8 +171,8 @@ Options currently implemented:
 Examples:
 
 ```bash
-devlog entry list
-devlog entry list --date 2026-04-14
+devlog list
+devlog list --date 2026-04-14
 ```
 
 ---
@@ -255,13 +259,13 @@ The following features are planned or partially scaffolded, but should not be tr
 
 ### Entry Management
 
-- `devlog entry add --duration <minutes>` / `-d <minutes>`
-- `devlog entry add -i` interactive entry creation
+- `devlog add --duration <minutes>` / `-d <minutes>`
+- `devlog add -i` interactive entry creation
 - `devlog entry edit <id>`
 - `devlog entry delete <id>`
-- `devlog entry list --week`
-- `devlog entry list --project <name>`
-- `devlog entry list --tag <name>`
+- `devlog list --week`
+- `devlog list --project <name>`
+- `devlog list --tag <name>`
 
 ### Summaries
 

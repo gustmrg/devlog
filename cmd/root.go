@@ -14,7 +14,7 @@ import (
 
 var (
 	cfgFile string
-	
+
 	RootCmd = &cobra.Command{
 		Use:   "devlog",
 		Short: "Track daily dev activities and generate timesheet summaries",
@@ -23,8 +23,9 @@ var (
 	Log activities throughout the day as you work, then generate a structured
 	summary at the end of your session — ready to paste into a timesheet.
 	
-	  devlog add "Implemented JWT auth middleware" -p echo -t backend,auth -d 45
-	  devlog summary --style concise`,
+	  devlog add "Implemented JWT auth middleware" -p echo -t backend,auth
+	  devlog list
+	  devlog summary create --style concise`,
 	}
 )
 
@@ -39,6 +40,8 @@ func init() {
 	cobra.OnInitialize(initConfig)
 
 	RootCmd.AddCommand(entry.EntryCmd)
+	RootCmd.AddCommand(entry.NewAddCmd())
+	RootCmd.AddCommand(entry.NewListCmd())
 	RootCmd.AddCommand(summary.SummaryCmd)
 	RootCmd.CompletionOptions.DisableDefaultCmd = true
 }

@@ -47,6 +47,14 @@ func init() {
 	RootCmd.AddCommand(summary.SummaryCmd)
 	RootCmd.AddCommand(versionCmd)
 	RootCmd.AddCommand(updateCmd)
+	RootCmd.AddCommand(newServeCmd())
+	RootCmd.AddCommand(newConnectCmd())
+	RootCmd.AddCommand(newSyncCmd())
+	RootCmd.AddCommand(newAgentCmd())
+	RootCmd.AddCommand(newSourceCmd())
+	RootCmd.AddCommand(newMigrateCmd())
+	RootCmd.AddCommand(newStatusCmd())
+	RootCmd.AddCommand(newAdminCmd())
 	RootCmd.CompletionOptions.DisableDefaultCmd = true
 }
 
@@ -67,6 +75,8 @@ func initConfig() {
 	viper.AutomaticEnv()
 
 	if err := viper.ReadInConfig(); err != nil {
-		fmt.Println("Error reading config file:", err)
+		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
+			fmt.Println("Error reading config file:", err)
+		}
 	}
 }

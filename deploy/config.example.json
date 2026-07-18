@@ -1,0 +1,28 @@
+{
+  "github": {
+    "enabled": false,
+    "tokenEnvVar": "DEVLOG_GITHUB_TOKEN",
+    "interval": "15m"
+  },
+  "llm": {
+    "enabled": false,
+    "baseUrl": "https://openrouter.ai/api/v1",
+    "model": "openai/gpt-oss-120b:free",
+    "apiKeyEnvVar": "DEVLOG_LLM_API_KEY"
+  },
+  "discord": {
+    "enabled": false,
+    "tokenEnvVar": "DEVLOG_DISCORD_BOT_TOKEN",
+    "guildId": "",
+    "channelId": "",
+    "userId": ""
+  },
+  "schedules": {
+    "timezone": "America/Fortaleza",
+    "correlateInterval": "30m",
+    "finalizeAt": "17:45",
+    "summaryAt": "18:00"
+  },
+  "retentionDays": 30,
+  "projects": []
+}

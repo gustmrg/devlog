@@ -1,0 +1,6 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/assets/style.css"><title>DevLog · Projetos</title></head>
+<body><header><strong>DevLog</strong><nav><a href="/">Hoje</a><a href="/devices">Dispositivos</a><a href="/jobs">Jobs</a></nav></header><main><h1>Projetos</h1>
+<form method="post" action="/projects"><label>Nome<input name="name" required></label><label>Remote canônico<input name="remote" placeholder="github.com/owner/repository" required></label><button>Adicionar projeto</button></form>
+<section>{{range .}}<article><div><h3>{{.Name}}</h3><p>{{.CanonicalRemote}}</p></div><form method="post" action="/projects/{{.ID}}/enabled">{{if .Enabled}}<button class="secondary" name="enabled" value="false">Desativar</button>{{else}}<button name="enabled" value="true">Ativar</button>{{end}}</form></article>{{else}}<p class="empty">Nenhum projeto configurado.</p>{{end}}</section>
+</main></body></html>

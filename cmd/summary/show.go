@@ -78,7 +78,7 @@ func getParsedDate(date string) (time.Time, error) {
 	if date == "" {
 		return time.Now(), nil
 	} else {
-		var err error 
+		var err error
 		parsedDate, err := time.Parse("2006-01-02", date)
 		if err != nil {
 			return time.Time{}, fmt.Errorf("invalid date format, expected YYYY-MM-DD\n")

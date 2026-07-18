@@ -1,10 +1,12 @@
 package entry
 
 import (
+	"devlog/internal/agent"
+	"devlog/internal/database"
+	"devlog/internal/domain"
 	"devlog/internal/store"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -33,15 +35,9 @@ Examples:
   devlog entry add "Reviewed checkout API" -p shop --date 2026-04-14`,
 		Args: cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
-			home, err := store.ConfigPath()
+			home, err := os.UserHomeDir()
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "%s %s\n", color.RedString("✗"), err)
-				return
-			}
-
-			entriesDir := filepath.Join(home, "entries")
-			if err := os.MkdirAll(entriesDir, 0755); err != nil {
-				fmt.Fprintf(os.Stderr, "%s could not create entries directory: %s\n", color.RedString("✗"), err)
 				return
 			}
 
@@ -78,17 +74,19 @@ Examples:
 				CreatedAt:   time.Now(),
 			}
 
-			logFile := filepath.Join(entriesDir, entryDate.Format("2006-01-02")+".json")
-
-			dailyLog, err := store.LoadDailyLog(logFile)
+			db, err := agent.Open(home)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "%s %s\n", color.RedString("✗"), err)
 				return
 			}
-			dailyLog.Date = entryDate.Format("2006-01-02")
-			dailyLog.Entries = append(dailyLog.Entries, entry)
-
-			if err := store.SaveDailyLog(logFile, dailyLog); err != nil {
+			defer db.Close()
+			_ = db.UpsertProject(cmd.Context(), domain.Project{ID: project, Name: project, Enabled: true, CreatedAt: time.Now().UTC()})
+			occurredAt := entry.CreatedAt
+			if date != "" {
+				occurredAt = time.Date(entryDate.Year(), entryDate.Month(), entryDate.Day(), 12, 0, 0, 0, time.Local)
+			}
+			event := domain.Event{ID: entry.Id, SourceType: "manual", SourceInstanceID: "cli", ExternalID: entry.Id, ProjectID: project, Kind: "manual.entry", OccurredAt: occurredAt.UTC(), ObservedAt: time.Now().UTC(), Payload: database.EncodePayload(map[string]any{"description": entry.Description, "tags": entry.Tags}), Fingerprint: "manual:" + entry.Id}
+			if _, err := db.QueueEvents(cmd.Context(), []domain.Event{event}); err != nil {
 				fmt.Fprintf(os.Stderr, "%s %s\n", color.RedString("✗"), err)
 				return
 			}

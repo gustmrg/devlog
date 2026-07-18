@@ -1,39 +1,40 @@
-/*
-Copyright © 2026 Gustavo Miranda
-*/
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 
+	appconfig "devlog/internal/config"
 	"github.com/spf13/cobra"
 )
 
-// configCmd represents the config command
-var configCmd = &cobra.Command{
-	Use:   "config",
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("config called")
-	},
-}
+var configCmd = &cobra.Command{Use: "config", Short: "Inspect and validate DevLog configuration"}
 
 func init() {
+	configCmd.AddCommand(&cobra.Command{Use: "show", Short: "Print the effective local configuration", RunE: func(cmd *cobra.Command, args []string) error {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return err
+		}
+		cfg, err := appconfig.Load(filepath.Join(home, ".devlog", "config.json"))
+		if err != nil {
+			return err
+		}
+		b, _ := json.MarshalIndent(cfg, "", "  ")
+		fmt.Fprintln(cmd.OutOrStdout(), string(b))
+		return nil
+	}}, &cobra.Command{Use: "validate", Short: "Validate the local configuration", RunE: func(cmd *cobra.Command, args []string) error {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return err
+		}
+		if _, err := appconfig.Load(filepath.Join(home, ".devlog", "config.json")); err != nil {
+			return err
+		}
+		fmt.Fprintln(cmd.OutOrStdout(), "Configuration is valid.")
+		return nil
+	}})
 	RootCmd.AddCommand(configCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// configCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// configCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }

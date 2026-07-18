@@ -1,0 +1,8 @@
+.git
+.github
+.claude
+bin
+data
+deploy/.env
+deploy/config.json
+*.db

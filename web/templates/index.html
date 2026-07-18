@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <link rel="stylesheet" href="/assets/style.css">
+  <title>DevLog · {{.Date}}</title>
+</head>
+<body>
+<header><strong>DevLog</strong><nav><a href="/">Hoje</a><a href="/devices">Dispositivos</a><a href="/projects">Projetos</a><a href="/jobs">Jobs</a><a href="/settings">Configuração</a><form method="post" action="/logout"><button class="link">Sair</button></form></nav></header>
+<main>
+  <div class="title"><div><p class="eyebrow">Linha do tempo</p><h1>{{.Date}}</h1></div><form method="post" action="/summaries/{{.Date}}/regenerate"><button>Gerar resumo</button></form></div>
+  {{if .Notice}}<p class="notice">{{.Notice}}</p>{{end}}
+  <section>
+    <h2>Atividades</h2>
+    {{range .Activities}}
+    <article>
+      <div>
+        <span class="confidence {{.Confidence}}">{{.Confidence}}</span>
+        <h3>{{.Description}}</h3>
+        <p>{{(local .StartedAt).Format "15:04"}}–{{(local .EndedAt).Format "15:04"}} · {{if .ProjectID}}{{.ProjectID}}{{else}}não classificado{{end}}</p>
+        <small>{{len .Evidence}} evidências · {{.Status}}</small>
+        {{if .Evidence}}<details><summary>Ver evidências</summary><ul>{{range .Evidence}}<li>{{.Label}} · <code>{{.EventID}}</code></li>{{end}}</ul></details>{{end}}
+        <details><summary>Corrigir</summary><form method="post" action="/activities/{{.ID}}/edit"><label>Descrição<input name="description" value="{{.Description}}" required></label><label>Projeto<input name="project" value="{{.ProjectID}}"></label><button>Salvar</button></form></details>
+      </div>
+      <form method="post" action="/activities/{{.ID}}/status"><button name="status" value="confirmed">Confirmar</button><button class="secondary" name="status" value="rejected">Rejeitar</button></form>
+    </article>
+    {{else}}<p class="empty">Nenhuma atividade correlacionada. O próximo job tentará novamente.</p>{{end}}
+    <details><summary>Adicionar atividade sem rastro digital</summary><form method="post" action="/activities"><input type="hidden" name="date" value="{{.Date}}"><label>Descrição<input name="description" required></label><label>Projeto<input name="project"></label><button>Adicionar</button></form></details>
+  </section>
+  {{with .Summary}}<section><h2>Resumo · revisão {{.Revision}}</h2><pre>{{.Content}}</pre><p>Status: {{.Status}}</p>{{if ne .Status "confirmed"}}<form method="post" action="/summaries/{{.ID}}/confirm"><button>Confirmar resumo e atividades</button></form>{{end}}</section>{{end}}
+</main>
+</body>
+</html>

@@ -26,22 +26,22 @@ type Entry struct {
 }
 
 type Summary struct {
-	ID string // "2026-04-21", used as filename
-	Date time.Time
-	Projects []ProjectGroup
-	Style string
+	ID          string // "2026-04-21", used as filename
+	Date        time.Time
+	Projects    []ProjectGroup
+	Style       string
 	AIGenerated bool
-	Content string
+	Content     string
 }
 
 type SummaryMeta struct {
-    Date     string `yaml:"date"`
-    Style    string `yaml:"style"`
-    Projects string `yaml:"projects"`
+	Date     string `yaml:"date"`
+	Style    string `yaml:"style"`
+	Projects string `yaml:"projects"`
 }
 
 type ProjectGroup struct {
-	Name string
+	Name    string
 	Entries []Entry
 }
 
@@ -135,7 +135,7 @@ func Init() error {
 	}
 
 	if err := os.MkdirAll(path, 0755); err != nil {
-    	return fmt.Errorf("fatal error creating application directory: %w", err)
+		return fmt.Errorf("fatal error creating application directory: %w", err)
 	}
 
 	viper.AddConfigPath(path)

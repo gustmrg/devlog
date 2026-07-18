@@ -4,11 +4,14 @@ Copyright © 2026 Gustavo Miranda
 package summary
 
 import (
+	"devlog/internal/agent"
+	"devlog/internal/correlation"
 	"devlog/internal/store"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
@@ -46,18 +49,32 @@ Examples:
 			return fmt.Errorf("%s %s", color.RedString("✗"), err)
 		}
 
-		logFile := filepath.Join(home, "entries", summaryDate.Format("2006-01-02")+".json")
-		dailyLog, err := store.LoadDailyLog(logFile)
+		userHome, err := os.UserHomeDir()
+		if err != nil {
+			return err
+		}
+		db, err := agent.Open(userHome)
+		if err != nil {
+			return fmt.Errorf("%s %s", color.RedString("✗"), err)
+		}
+		defer db.Close()
+		dateLabel := summaryDate.Format("2006-01-02")
+		events, err := db.EventsForDay(cmd.Context(), dateLabel, time.Local)
 		if err != nil {
 			return fmt.Errorf("%s %s", color.RedString("✗"), err)
 		}
 
-		if len(dailyLog.Entries) == 0 {
+		if len(events) == 0 {
 			fmt.Printf("  %s\n", color.New(color.FgHiBlack).Sprintf("· No entries found for %s", summaryDate.Format("2006-01-02")))
 			return nil
 		}
 
-		grouped := groupByProject(dailyLog.Entries)
+		activities := correlation.Correlator{}.Correlate(events)
+		entries := make([]store.Entry, 0, len(activities))
+		for _, a := range activities {
+			entries = append(entries, store.Entry{Id: a.ID, Project: a.ProjectID, Description: a.Description, CreatedAt: a.StartedAt})
+		}
+		grouped := groupByProject(entries)
 		content := buildContent(grouped)
 
 		summariesDir := filepath.Join(home, "summaries")

@@ -1,0 +1,22 @@
+services:
+  devlog:
+    image: ghcr.io/gustmrg/devlog:latest
+    build:
+      context: ..
+    command: ["serve", "--data-dir", "/data", "--config", "/etc/devlog/config.json", "--listen", ":8080"]
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - devlog-data:/data
+      - ./config.json:/etc/devlog/config.json:ro
+    ports:
+      - "127.0.0.1:8080:8080"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:8080/readyz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  devlog-data:

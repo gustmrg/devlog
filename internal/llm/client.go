@@ -20,6 +20,7 @@ import (
 var providerBaseURLs = map[string]string{
 	"openrouter": "https://openrouter.ai/api/v1",
 	"openai":     "https://api.openai.com/v1",
+	"deepseek":   "https://api.deepseek.com",
 }
 
 // Client calls an OpenAI-compatible chat completions API.

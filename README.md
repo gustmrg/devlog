@@ -373,10 +373,14 @@ The `llm` section powers `devlog summary create --ai` and `devlog sync --polish`
 | Key | Description |
 |---|---|
 | `enabled` | Must be `true` for LLM features to run. |
-| `provider` | `openrouter` or `openai`. For any other OpenAI-compatible endpoint, set `baseURL` instead. |
+| `provider` | `openrouter`, `openai`, or `deepseek`. For any other OpenAI-compatible endpoint, set `baseURL` instead. |
 | `baseURL` | Optional. Overrides the provider's API base URL (e.g. a local or self-hosted endpoint). |
 | `model` | Model identifier passed to the API. |
 | `apiKeyEnvVar` | Name of the environment variable holding the API key. The key itself is never stored in the config. |
+
+`defaults.language` is included in LLM prompts for both AI summaries and polished sync entries. Use a language tag such as `pt-BR` or `en-US`.
+
+For DeepSeek, set `provider` to `deepseek`, choose a DeepSeek model (for example `deepseek-chat`), and set `apiKeyEnvVar` to the environment variable containing your DeepSeek API key.
 
 The config command interface is planned but not fully implemented yet.
 

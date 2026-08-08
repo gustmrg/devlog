@@ -162,6 +162,10 @@ func generateWithLLM(ctx context.Context, groups []store.ProjectGroup, style str
 	}
 
 	var userPrompt strings.Builder
+	language := viper.GetString("defaults.language")
+	if language != "" {
+		userPrompt.WriteString("Write the output in " + language + ". ")
+	}
 	userPrompt.WriteString("These are my devlog entries for the day, grouped by project. ")
 	userPrompt.WriteString("Turn them into a work summary in the style described. ")
 	userPrompt.WriteString("Output only Markdown: a bold project name as heading per project, followed by bullet points. No title, no preamble, no closing remarks.\n\n")

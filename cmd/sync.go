@@ -211,6 +211,10 @@ func polishEntries(ctx context.Context, entries []store.Entry) ([]store.Entry, e
 	}
 
 	var userPrompt strings.Builder
+	language := viper.GetString("defaults.language")
+	if language != "" {
+		userPrompt.WriteString("Write every rewritten entry in " + language + ". ")
+	}
 	userPrompt.WriteString("Rewrite each raw git activity line below as a devlog entry in the style described. ")
 	userPrompt.WriteString("Keep the same order and the same number of items. ")
 	userPrompt.WriteString("Respond with a strict JSON array of strings and nothing else — no Markdown fences, no commentary.\n\n")

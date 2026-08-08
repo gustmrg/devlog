@@ -23,6 +23,9 @@ type Entry struct {
 	Description string    `json:"description"`
 	Tags        []string  `json:"tags"`
 	CreatedAt   time.Time `json:"createdAt"`
+	// Source identifies the external origin of an entry (e.g. "github:commit:<sha>"),
+	// used to keep repeated syncs idempotent. Empty for manually added entries.
+	Source      string    `json:"source,omitempty"`
 }
 
 type Summary struct {
@@ -149,6 +152,8 @@ func Init() error {
 	viper.Set("llm.provider", "openrouter")
 	viper.Set("llm.model", "openai/gpt-oss-120b:free")
 	viper.Set("llm.apiKeyEnvVar", "OPENROUTER_API_KEY")
+	viper.Set("github.username", "")
+	viper.Set("github.tokenEnvVar", "GITHUB_TOKEN")
 
 	if err := viper.SafeWriteConfig(); err != nil {
 		return fmt.Errorf("fatal error writing config file: %w", err)

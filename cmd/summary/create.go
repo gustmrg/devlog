@@ -4,7 +4,10 @@ Copyright © 2026 Gustavo Miranda
 package summary
 
 import (
+	"context"
+	"devlog/internal/llm"
 	"devlog/internal/store"
+	"devlog/templates"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -12,6 +15,7 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 var createCmd = &cobra.Command{
@@ -58,7 +62,25 @@ Examples:
 		}
 
 		grouped := groupByProject(dailyLog.Entries)
+
+		if ai && style == "" {
+			style = viper.GetString("defaults.style")
+		}
+		if style == "" {
+			style = "concise"
+		}
+
 		content := buildContent(grouped)
+		aiGenerated := false
+
+		if ai {
+			aiContent, err := generateWithLLM(cmd.Context(), grouped, style)
+			if err != nil {
+				return fmt.Errorf("%s %s", color.RedString("✗"), err)
+			}
+			content = aiContent
+			aiGenerated = true
+		}
 
 		summariesDir := filepath.Join(home, "summaries")
 		if err := os.MkdirAll(summariesDir, 0755); err != nil {
@@ -66,11 +88,12 @@ Examples:
 		}
 
 		summary := store.Summary{
-			ID:       summaryDate.Format("2006-01-02"),
-			Date:     summaryDate,
-			Projects: grouped,
-			Style:    "concise",
-			Content:  content,
+			ID:          summaryDate.Format("2006-01-02"),
+			Date:        summaryDate,
+			Projects:    grouped,
+			Style:       style,
+			AIGenerated: aiGenerated,
+			Content:     content,
 		}
 
 		summaryFile := filepath.Join(summariesDir, summaryDate.Format("2006-01-02")+".md")
@@ -123,6 +146,39 @@ func buildContent(groups []store.ProjectGroup) string {
 	}
 
 	return strings.TrimRight(sb.String(), "\n")
+}
+
+// generateWithLLM produces a polished narrative summary from the day's
+// entries using the prompt template for the given style.
+func generateWithLLM(ctx context.Context, groups []store.ProjectGroup, style string) (string, error) {
+	template, err := templates.Get(style)
+	if err != nil {
+		return "", err
+	}
+
+	client, err := llm.NewFromConfig()
+	if err != nil {
+		return "", err
+	}
+
+	var userPrompt strings.Builder
+	userPrompt.WriteString("These are my devlog entries for the day, grouped by project. ")
+	userPrompt.WriteString("Turn them into a work summary in the style described. ")
+	userPrompt.WriteString("Output only Markdown: a bold project name as heading per project, followed by bullet points. No title, no preamble, no closing remarks.\n\n")
+	for _, g := range groups {
+		userPrompt.WriteString("Project: " + g.Name + "\n")
+		for _, e := range g.Entries {
+			userPrompt.WriteString("- " + e.Description + "\n")
+		}
+		userPrompt.WriteString("\n")
+	}
+
+	content, err := client.Complete(ctx, template, userPrompt.String())
+	if err != nil {
+		return "", err
+	}
+
+	return strings.TrimSpace(content), nil
 }
 
 func init() {

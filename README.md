@@ -19,6 +19,8 @@ DevLog is intended to be useful both directly from the terminal and through codi
 - Show a previously generated summary
 - List previously generated summaries with date-range filters
 - Store all data locally under `~/.devlog/`
+- Import GitHub activity (commits, authored PRs, PR reviews) as entries with `devlog sync`
+- Generate AI-polished summaries (`--ai`, four style templates) and LLM-rewritten sync descriptions (`--polish`) via any OpenAI-compatible endpoint
 - Report version/build info and self-update from GitHub releases
 
 ---
@@ -154,6 +156,38 @@ devlog add "Reviewed checkout API" -p shop --date 2026-04-14
 
 ---
 
+### `devlog sync`
+
+Imports your GitHub activity for a date — commits, pull requests you authored, and pull requests you reviewed — as entries for that day. Private repositories are included as long as the token can access them.
+
+```bash
+devlog sync [options]
+```
+
+Options currently implemented:
+
+| Option | Description |
+|---|---|
+| `--date <YYYY-MM-DD>` | Date to sync. Defaults to today. |
+| `--dry-run` | Print what would be imported without writing entries. |
+| `--polish` | Rewrite descriptions with an LLM before saving (requires `llm.enabled` in config). On LLM failure the raw descriptions are kept. |
+
+Setup:
+
+- Set `github.username` in `~/.devlog/config.json`.
+- Put a GitHub token in the environment variable named by `github.tokenEnvVar` (default `GITHUB_TOKEN`). The token needs the `repo` scope (classic) or Contents read access (fine-grained); authorize it for SSO if your organization requires it.
+
+Re-running `sync` for the same date skips already-imported items, so it is safe to schedule (e.g. a daily cron job).
+
+Examples:
+
+```bash
+devlog sync
+devlog sync --date 2026-08-05 --dry-run
+```
+
+---
+
 ### `devlog list`
 
 Displays entries for today or for a specific date.
@@ -189,15 +223,18 @@ devlog summary create [options]
 
 Options currently implemented:
 
-| Option | Description |
-|---|---|
-| `--date <YYYY-MM-DD>` | Summarize a specific date. Defaults to today. |
+| Option | Short | Description |
+|---|---:|---|
+| `--date <YYYY-MM-DD>` | | Summarize a specific date. Defaults to today. |
+| `--ai` | | Use an LLM to produce a polished narrative (requires `llm.enabled` in config). |
+| `--style <style>` | `-s` | Output style: concise, detailed, formal, impersonal. Only valid with `--ai`; defaults to `defaults.style` from config. |
 
 Examples:
 
 ```bash
 devlog summary create
 devlog summary create --date 2026-04-14
+devlog summary create --ai --style formal
 ```
 
 ---
@@ -316,6 +353,10 @@ Default shape:
     "style": "concise",
     "language": "pt-BR"
   },
+  "github": {
+    "username": "",
+    "tokenEnvVar": "GITHUB_TOKEN"
+  },
   "llm": {
     "enabled": false,
     "provider": "openrouter",
@@ -324,6 +365,18 @@ Default shape:
   }
 }
 ```
+
+### LLM settings
+
+The `llm` section powers `devlog summary create --ai` and `devlog sync --polish`:
+
+| Key | Description |
+|---|---|
+| `enabled` | Must be `true` for LLM features to run. |
+| `provider` | `openrouter` or `openai`. For any other OpenAI-compatible endpoint, set `baseURL` instead. |
+| `baseURL` | Optional. Overrides the provider's API base URL (e.g. a local or self-hosted endpoint). |
+| `model` | Model identifier passed to the API. |
+| `apiKeyEnvVar` | Name of the environment variable holding the API key. The key itself is never stored in the config. |
 
 The config command interface is planned but not fully implemented yet.
 
@@ -346,7 +399,6 @@ The following features are planned or partially scaffolded, but should not be tr
 ### Summaries
 
 - `devlog summary create --week`
-- `devlog summary create --style concise|detailed|formal|impersonal`
 - `devlog summary create --format <template>`
 - summary templates from `~/.devlog/templates/`
 
@@ -358,9 +410,6 @@ The following features are planned or partially scaffolded, but should not be tr
 
 ### AI-Enhanced Summaries
 
-- `devlog summary create --ai`
-- optional LLM narrative polishing
-- support for configured provider/model/API key
 - output language based on config, e.g. `pt-BR` or `en-US`
 
 ---

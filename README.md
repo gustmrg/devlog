@@ -177,7 +177,28 @@ Setup:
 - Set `github.username` in `~/.devlog/config.json`.
 - Put a GitHub token in the environment variable named by `github.tokenEnvVar` (default `GITHUB_TOKEN`). The token needs the `repo` scope (classic) or Contents read access (fine-grained); authorize it for SSO if your organization requires it.
 
-Re-running `sync` for the same date skips already-imported items, so it is safe to schedule (e.g. a daily cron job).
+Re-running `sync` for the same date skips already-imported items, so it is safe to schedule.
+
+#### Automatic sync
+
+Install a daily job using `launchd` on macOS or the user crontab on Linux:
+
+```bash
+devlog sync schedule --daily-at 23:55
+devlog sync schedule --daily-at 18:00 --polish --env-file ~/.devlog/sync.env
+devlog sync schedule show
+devlog sync schedule remove
+```
+
+Scheduled jobs do not normally inherit an interactive shell's environment. To provide credentials, create a protected environment file:
+
+```bash
+mkdir -p ~/.devlog
+printf 'GITHUB_TOKEN=your-token\nDEEPSEEK_API_KEY=your-key\n' > ~/.devlog/sync.env
+chmod 600 ~/.devlog/sync.env
+```
+
+Pass it with `--env-file` when installing the schedule. The file accepts `KEY=VALUE` lines and is read directly by DevLog; it is never copied into the cron or launchd definition. Job output is appended to `~/.devlog/sync.log`.
 
 Examples:
 

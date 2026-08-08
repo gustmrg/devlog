@@ -39,25 +39,33 @@ Examples:
   devlog sync --date 2026-08-05
   devlog sync --polish
   devlog sync --dry-run`,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		dateFlag, _ := cmd.Flags().GetString("date")
 		dryRun, _ := cmd.Flags().GetBool("dry-run")
 		polish, _ := cmd.Flags().GetBool("polish")
+		envFile, _ := cmd.Flags().GetString("env-file")
+		if envFile != "" {
+			path, err := absolutePath(envFile)
+			if err != nil {
+				return err
+			}
+			if err := loadEnvFile(path); err != nil {
+				return fmt.Errorf("could not load environment file: %w", err)
+			}
+		}
 
 		syncDate := time.Now()
 		if dateFlag != "" {
 			parsed, err := time.Parse("2006-01-02", dateFlag)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "%s invalid date format, expected YYYY-MM-DD\n", color.RedString("✗"))
-				return
+				return fmt.Errorf("invalid date format, expected YYYY-MM-DD")
 			}
 			syncDate = parsed
 		}
 
 		username := viper.GetString("github.username")
 		if username == "" {
-			fmt.Fprintf(os.Stderr, "%s github.username is not set — add it to ~/.devlog/config.json\n", color.RedString("✗"))
-			return
+			return fmt.Errorf("github.username is not set — add it to ~/.devlog/config.json")
 		}
 
 		tokenEnvVar := viper.GetString("github.tokenEnvVar")
@@ -66,8 +74,7 @@ Examples:
 		}
 		token := os.Getenv(tokenEnvVar)
 		if token == "" {
-			fmt.Fprintf(os.Stderr, "%s no token found — set the %s environment variable\n", color.RedString("✗"), tokenEnvVar)
-			return
+			return fmt.Errorf("no token found — set the %s environment variable", tokenEnvVar)
 		}
 
 		ctx := context.Background()
@@ -76,14 +83,13 @@ Examples:
 		fmt.Printf("Fetching GitHub activity for %s (%s)...\n", username, syncDate.Format("2006-01-02"))
 		activity, err := ghsync.FetchActivity(ctx, client, username, syncDate)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s %s\n", color.RedString("✗"), err)
-			return
+			return err
 		}
 
 		entries := mapActivity(activity)
 		if len(entries) == 0 {
 			fmt.Println("No GitHub activity found for this date.")
-			return
+			return nil
 		}
 
 		if polish {
@@ -100,25 +106,22 @@ Examples:
 				fmt.Printf("%s [%s] %s\n", color.CyanString("•"), e.Project, e.Description)
 			}
 			fmt.Printf("%s %d entries (dry-run, nothing written)\n", color.GreenString("✔"), len(entries))
-			return
+			return nil
 		}
 
 		home, err := store.ConfigPath()
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s %s\n", color.RedString("✗"), err)
-			return
+			return err
 		}
 		entriesDir := filepath.Join(home, "entries")
 		if err := os.MkdirAll(entriesDir, 0755); err != nil {
-			fmt.Fprintf(os.Stderr, "%s could not create entries directory: %s\n", color.RedString("✗"), err)
-			return
+			return fmt.Errorf("could not create entries directory: %w", err)
 		}
 
 		logFile := filepath.Join(entriesDir, syncDate.Format("2006-01-02")+".json")
 		dailyLog, err := store.LoadDailyLog(logFile)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s %s\n", color.RedString("✗"), err)
-			return
+			return err
 		}
 		dailyLog.Date = syncDate.Format("2006-01-02")
 
@@ -141,15 +144,15 @@ Examples:
 
 		if added == 0 {
 			fmt.Println("All activity for this date was already imported.")
-			return
+			return nil
 		}
 
 		if err := store.SaveDailyLog(logFile, dailyLog); err != nil {
-			fmt.Fprintf(os.Stderr, "%s %s\n", color.RedString("✗"), err)
-			return
+			return err
 		}
 
 		fmt.Printf("%s %d new entries added\n", color.GreenString("✔"), added)
+		return nil
 	},
 }
 
@@ -254,4 +257,6 @@ func init() {
 	syncCmd.Flags().String("date", "", "Date to sync (YYYY-MM-DD, defaults to today)")
 	syncCmd.Flags().Bool("dry-run", false, "Print what would be imported without writing entries")
 	syncCmd.Flags().Bool("polish", false, "Rewrite descriptions with an LLM (requires llm.enabled in config)")
+	syncCmd.Flags().String("env-file", "", "Load API credentials from a protected KEY=VALUE file")
+	_ = syncCmd.Flags().MarkHidden("env-file")
 }

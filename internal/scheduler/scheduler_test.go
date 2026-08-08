@@ -23,6 +23,7 @@ func TestLaunchdDefinition(t *testing.T) {
 		Hour:       23,
 		Minute:     55,
 		Polish:     true,
+		Remote:     true,
 		EnvFile:    "/Users/test/.devlog/sync.env",
 		LogFile:    "/Users/test/.devlog/sync.log",
 	}
@@ -30,6 +31,7 @@ func TestLaunchdDefinition(t *testing.T) {
 	for _, expected := range []string{
 		"<string>/Applications/Dev Log/devlog</string>",
 		"<string>--polish</string>",
+		"<string>--remote</string>",
 		"<string>--env-file</string>",
 		"<key>Hour</key><integer>23</integer>",
 		"<key>Minute</key><integer>55</integer>",
@@ -45,6 +47,7 @@ func TestCronDefinitionQuotesPaths(t *testing.T) {
 		Executable: "/home/test/dev log/devlog",
 		Hour:       8,
 		Minute:     30,
+		Remote:     true,
 		EnvFile:    "/home/test/it's.env",
 		LogFile:    "/home/test/dev log/sync.log",
 	}
@@ -57,6 +60,9 @@ func TestCronDefinitionQuotesPaths(t *testing.T) {
 	}
 	if !strings.Contains(definition, `'/home/test/it'"'"'s.env'`) {
 		t.Errorf("single quote was not escaped: %s", definition)
+	}
+	if !strings.Contains(definition, " sync --remote --env-file ") {
+		t.Errorf("remote sync arguments are missing: %s", definition)
 	}
 }
 

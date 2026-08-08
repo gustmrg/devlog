@@ -18,7 +18,8 @@ DevLog is intended to be useful both directly from the terminal and through codi
 - Generate a basic Markdown summary for a specific day
 - Show a previously generated summary
 - List previously generated summaries with date-range filters
-- Store all data locally under `~/.devlog/`
+- Store entries as conflict-resistant individual files under `~/.devlog/data/`
+- Synchronize data across machines through a private Git repository
 - Import GitHub activity (commits, authored PRs, PR reviews) as entries with `devlog sync`
 - Generate AI-polished summaries (`--ai`, four style templates) and LLM-rewritten sync descriptions (`--polish`) via any OpenAI-compatible endpoint
 - Report version/build info and self-update from GitHub releases
@@ -57,6 +58,9 @@ Example summary output:
 date: 2026-04-14
 style: concise
 projects: Echo, BitFinance
+aiGenerated: false
+generatedAt: 2026-04-14T18:20:00Z
+deviceId: 62c47f36-08f8-4d43-9f48-a303481b18fc
 ---
 **Echo**
 - Implemented JWT auth middleware
@@ -105,13 +109,20 @@ DevLog stores data locally under:
 ```text
 ~/.devlog/
 ├── config.json
-├── entries/
-│   └── 2026-04-14.json
-└── summaries/
-    └── 2026-04-14.md
+├── device-id
+├── data/
+│   ├── .devlog-version
+│   ├── entries/
+│   │   └── 2026-04-14/
+│   │       └── <entry-id>.json
+│   └── summaries/
+│       └── 2026-04-14.md
+└── backups/
 ```
 
-Entry files are JSON. Summary files are Markdown with YAML frontmatter.
+Entry files are JSON. Summary files are Markdown with YAML frontmatter. Configuration, API credentials, logs, and the local device ID remain outside the synchronized `data/` repository.
+
+Older daily JSON logs are migrated automatically on first use. Run `devlog migrate` explicitly to perform the migration ahead of time. Legacy data is copied to a timestamped directory under `~/.devlog/backups/` before conversion.
 
 ---
 
@@ -126,6 +137,18 @@ devlog init
 ```
 
 Current note: this command uses safe config creation and will not overwrite an existing config file.
+
+---
+
+### `devlog migrate`
+
+Converts legacy daily JSON logs to the conflict-resistant per-entry layout. Normal commands also perform this migration automatically when needed.
+
+```bash
+devlog migrate
+```
+
+The original data is copied to a timestamped backup before the current data-version marker is written.
 
 ---
 
@@ -171,6 +194,7 @@ Options currently implemented:
 | `--date <YYYY-MM-DD>` | Date to sync. Defaults to today. |
 | `--dry-run` | Print what would be imported without writing entries. |
 | `--polish` | Rewrite descriptions with an LLM before saving (requires `llm.enabled` in config). On LLM failure the raw descriptions are kept. |
+| `--remote` | Pull before importing GitHub activity and push the resulting entries afterward. |
 
 Setup:
 
@@ -185,7 +209,7 @@ Install a daily job using `launchd` on macOS or the user crontab on Linux:
 
 ```bash
 devlog sync schedule --daily-at 23:55
-devlog sync schedule --daily-at 18:00 --polish --env-file ~/.devlog/sync.env
+devlog sync schedule --daily-at 18:00 --polish --remote --env-file ~/.devlog/sync.env
 devlog sync schedule show
 devlog sync schedule remove
 ```
@@ -200,12 +224,44 @@ chmod 600 ~/.devlog/sync.env
 
 Pass it with `--env-file` when installing the schedule. The file accepts `KEY=VALUE` lines and is read directly by DevLog; it is never copied into the cron or launchd definition. Job output is appended to `~/.devlog/sync.log`.
 
+With `--remote`, the scheduled job pulls remote DevLog changes, imports GitHub activity, and pushes the combined result. Remote failures return a nonzero exit status and local entries remain available for the next retry.
+
 Examples:
 
 ```bash
 devlog sync
 devlog sync --date 2026-08-05 --dry-run
 ```
+
+---
+
+### `devlog remote`
+
+Synchronizes the local data directory through a private Git repository. DevLog uses the installed `git` executable so existing SSH keys and Git credential helpers continue to work.
+
+```bash
+# First machine
+devlog remote init git@github.com:you/devlog-data.git
+
+# Additional machines use the same command and repository
+devlog remote init git@github.com:you/devlog-data.git
+
+devlog remote status
+devlog remote sync
+devlog remote remove
+```
+
+`remote init` migrates existing data, commits it locally, merges existing remote data, and pushes the result. `remote remove` only disconnects the remote; it does not delete local files or the Git repository on the server.
+
+Remote synchronization:
+
+- merges entries by stable UUID or external `source`;
+- gives GitHub-imported entries deterministic IDs, preventing duplicate imports across machines;
+- retries concurrent non-fast-forward pushes up to three times;
+- keeps the newer summary during a conflict and preserves the other version under `summaries/conflicts/`;
+- operates without an interactive Git credential prompt, making authentication failures visible to scheduled jobs.
+
+Use a private repository because DevLog entries may contain sensitive work information. For unattended scheduling, configure SSH or a Git credential helper that works outside an interactive shell.
 
 ---
 
@@ -383,9 +439,19 @@ Default shape:
     "provider": "openrouter",
     "model": "openai/gpt-oss-120b:free",
     "apiKeyEnvVar": "OPENROUTER_API_KEY"
+  },
+  "remote": {
+    "enabled": false,
+    "url": "",
+    "branch": "main"
+  },
+  "storage": {
+    "path": ""
   }
 }
 ```
+
+An empty `storage.path` uses `~/.devlog/data`. A custom path must be a dedicated data directory and cannot contain `~/.devlog/config.json` or credential files.
 
 ### LLM settings
 
@@ -432,12 +498,6 @@ The following features are planned or partially scaffolded, but should not be tr
 - `devlog config list`
 - `devlog config get <key>`
 - `devlog config set <key> <value>`
-
-### AI-Enhanced Summaries
-
-- output language based on config, e.g. `pt-BR` or `en-US`
-
----
 
 ## Built With
 

@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -15,7 +14,6 @@ import (
 	"devlog/templates"
 
 	"github.com/fatih/color"
-	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -43,6 +41,7 @@ Examples:
 		dateFlag, _ := cmd.Flags().GetString("date")
 		dryRun, _ := cmd.Flags().GetBool("dry-run")
 		polish, _ := cmd.Flags().GetBool("polish")
+		remoteSync, _ := cmd.Flags().GetBool("remote")
 		envFile, _ := cmd.Flags().GetString("env-file")
 		if envFile != "" {
 			path, err := absolutePath(envFile)
@@ -51,6 +50,15 @@ Examples:
 			}
 			if err := loadEnvFile(path); err != nil {
 				return fmt.Errorf("could not load environment file: %w", err)
+			}
+		}
+		repo, err := store.OpenRepository()
+		if err != nil {
+			return err
+		}
+		if remoteSync && !dryRun {
+			if err := syncConfiguredRemote(cmd.Context(), repo); err != nil {
+				return fmt.Errorf("remote pull failed: %w", err)
 			}
 		}
 
@@ -109,49 +117,25 @@ Examples:
 			return nil
 		}
 
-		home, err := store.ConfigPath()
+		addedEntries, err := repo.AddEntries(syncDate, entries)
 		if err != nil {
 			return err
 		}
-		entriesDir := filepath.Join(home, "entries")
-		if err := os.MkdirAll(entriesDir, 0755); err != nil {
-			return fmt.Errorf("could not create entries directory: %w", err)
-		}
-
-		logFile := filepath.Join(entriesDir, syncDate.Format("2006-01-02")+".json")
-		dailyLog, err := store.LoadDailyLog(logFile)
-		if err != nil {
-			return err
-		}
-		dailyLog.Date = syncDate.Format("2006-01-02")
-
-		existing := map[string]bool{}
-		for _, e := range dailyLog.Entries {
-			if e.Source != "" {
-				existing[e.Source] = true
-			}
-		}
-
-		added := 0
-		for _, e := range entries {
-			if existing[e.Source] {
-				continue
-			}
-			dailyLog.Entries = append(dailyLog.Entries, e)
-			added++
+		for _, e := range addedEntries {
 			fmt.Printf("%s [%s] %s\n", color.GreenString("+"), e.Project, e.Description)
 		}
 
-		if added == 0 {
+		if len(addedEntries) == 0 {
 			fmt.Println("All activity for this date was already imported.")
 			return nil
 		}
 
-		if err := store.SaveDailyLog(logFile, dailyLog); err != nil {
-			return err
+		fmt.Printf("%s %d new entries added\n", color.GreenString("✔"), len(addedEntries))
+		if remoteSync {
+			if err := syncConfiguredRemote(cmd.Context(), repo); err != nil {
+				return fmt.Errorf("entries were saved locally, but remote push failed: %w", err)
+			}
 		}
-
-		fmt.Printf("%s %d new entries added\n", color.GreenString("✔"), added)
 		return nil
 	},
 }
@@ -159,15 +143,16 @@ Examples:
 // mapActivity converts fetched GitHub activity into store entries.
 func mapActivity(activity ghsync.Activity) []store.Entry {
 	var entries []store.Entry
-	now := time.Now()
 
 	newEntry := func(project, description, source string, tags ...string) store.Entry {
+		now := time.Now()
 		return store.Entry{
-			Id:          uuid.NewString(),
+			Id:          store.EntryID(source),
 			Project:     project,
 			Description: description,
 			Tags:        tags,
 			CreatedAt:   now,
+			UpdatedAt:   now,
 			Source:      source,
 		}
 	}
@@ -257,6 +242,7 @@ func init() {
 	syncCmd.Flags().String("date", "", "Date to sync (YYYY-MM-DD, defaults to today)")
 	syncCmd.Flags().Bool("dry-run", false, "Print what would be imported without writing entries")
 	syncCmd.Flags().Bool("polish", false, "Rewrite descriptions with an LLM (requires llm.enabled in config)")
+	syncCmd.Flags().Bool("remote", false, "Pull and push the configured DevLog Git remote")
 	syncCmd.Flags().String("env-file", "", "Load API credentials from a protected KEY=VALUE file")
 	_ = syncCmd.Flags().MarkHidden("env-file")
 }

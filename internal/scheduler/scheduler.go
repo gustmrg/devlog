@@ -23,6 +23,7 @@ type Options struct {
 	Hour       int
 	Minute     int
 	Polish     bool
+	Remote     bool
 	EnvFile    string
 	LogFile    string
 }
@@ -127,6 +128,9 @@ func arguments(opts Options) []string {
 	args := []string{"sync"}
 	if opts.Polish {
 		args = append(args, "--polish")
+	}
+	if opts.Remote {
+		args = append(args, "--remote")
 	}
 	if opts.EnvFile != "" {
 		args = append(args, "--env-file", opts.EnvFile)

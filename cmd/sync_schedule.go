@@ -22,10 +22,11 @@ Scheduled jobs have a minimal environment. Use --env-file to load API keys
 from a file containing KEY=VALUE lines. The file must only be accessible by
 its owner (for example, chmod 600 ~/.devlog/sync.env).`,
 	Example: `  devlog sync schedule --daily-at 23:55
-  devlog sync schedule --daily-at 18:00 --polish --env-file ~/.devlog/sync.env`,
+  devlog sync schedule --daily-at 18:00 --polish --remote --env-file ~/.devlog/sync.env`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		dailyAt, _ := cmd.Flags().GetString("daily-at")
 		polish, _ := cmd.Flags().GetBool("polish")
+		remote, _ := cmd.Flags().GetBool("remote")
 		envFile, _ := cmd.Flags().GetString("env-file")
 
 		hour, minute, err := scheduler.ParseTime(dailyAt)
@@ -59,6 +60,7 @@ its owner (for example, chmod 600 ~/.devlog/sync.env).`,
 			Hour:       hour,
 			Minute:     minute,
 			Polish:     polish,
+			Remote:     remote,
 			EnvFile:    envFile,
 			LogFile:    logFile,
 		})
@@ -172,5 +174,6 @@ func init() {
 	syncScheduleCmd.AddCommand(syncScheduleShowCmd, syncScheduleRemoveCmd)
 	syncScheduleCmd.Flags().String("daily-at", "23:55", "Daily sync time in 24-hour HH:MM format")
 	syncScheduleCmd.Flags().Bool("polish", false, "Rewrite synced descriptions with the configured LLM")
+	syncScheduleCmd.Flags().Bool("remote", false, "Pull and push the configured Git remote around GitHub import")
 	syncScheduleCmd.Flags().String("env-file", "", "Protected KEY=VALUE file containing API credentials")
 }

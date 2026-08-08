@@ -6,7 +6,6 @@ package summary
 import (
 	"devlog/internal/store"
 	"fmt"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -37,13 +36,12 @@ Examples:
 			return err
 		}
 
-		home, err := store.ConfigPath()
+		repo, err := store.OpenRepository()
 		if err != nil {
 			return fmt.Errorf("%s %s\n", color.RedString("✗"), err)
 		}
 
-		summaryPath := filepath.Join(home, "summaries", summaryDate.Format("2006-01-02")+".md")
-		summary, err := store.LoadSummary(summaryPath)
+		summary, err := repo.LoadSummary(summaryDate)
 		if err != nil {
 			return fmt.Errorf("%s %s\n", color.RedString("✗"), err)
 		}
@@ -78,7 +76,7 @@ func getParsedDate(date string) (time.Time, error) {
 	if date == "" {
 		return time.Now(), nil
 	} else {
-		var err error 
+		var err error
 		parsedDate, err := time.Parse("2006-01-02", date)
 		if err != nil {
 			return time.Time{}, fmt.Errorf("invalid date format, expected YYYY-MM-DD\n")

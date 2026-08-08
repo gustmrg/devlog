@@ -6,7 +6,6 @@ package summary
 import (
 	"devlog/internal/store"
 	"fmt"
-	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -55,25 +54,18 @@ Examples:
 			return err
 		}
 
-		home, err := store.ConfigPath()
+		repo, err := store.OpenRepository()
 		if err != nil {
 			return fmt.Errorf("%s %s", color.RedString("✗"), err)
 		}
-		summariesDir := filepath.Join(home, "summaries")
-
-		dirEntries, err := os.ReadDir(summariesDir)
-		if os.IsNotExist(err) {
-			dirEntries = nil
-		} else if err != nil {
+		summaryFiles, err := repo.SummaryFiles()
+		if err != nil {
 			return fmt.Errorf("%s %s", color.RedString("✗"), err)
 		}
 
 		var summaries []store.Summary
-		for _, de := range dirEntries {
-			if de.IsDir() || !strings.HasSuffix(de.Name(), ".md") {
-				continue
-			}
-			name := strings.TrimSuffix(de.Name(), ".md")
+		for _, summaryFile := range summaryFiles {
+			name := strings.TrimSuffix(filepath.Base(summaryFile), ".md")
 			d, err := time.Parse("2006-01-02", name)
 			if err != nil {
 				continue
@@ -83,7 +75,7 @@ Examples:
 				continue
 			}
 
-			summary, err := store.LoadSummary(filepath.Join(summariesDir, de.Name()))
+			summary, err := store.LoadSummary(summaryFile)
 			if err != nil {
 				return fmt.Errorf("%s %s", color.RedString("✗"), err)
 			}

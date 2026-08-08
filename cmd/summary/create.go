@@ -9,8 +9,6 @@ import (
 	"devlog/internal/store"
 	"devlog/templates"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/fatih/color"
@@ -45,23 +43,21 @@ Examples:
 			return err
 		}
 
-		home, err := store.ConfigPath()
+		repo, err := store.OpenRepository()
+		if err != nil {
+			return fmt.Errorf("%s %s", color.RedString("✗"), err)
+		}
+		entries, err := repo.Entries(summaryDate)
 		if err != nil {
 			return fmt.Errorf("%s %s", color.RedString("✗"), err)
 		}
 
-		logFile := filepath.Join(home, "entries", summaryDate.Format("2006-01-02")+".json")
-		dailyLog, err := store.LoadDailyLog(logFile)
-		if err != nil {
-			return fmt.Errorf("%s %s", color.RedString("✗"), err)
-		}
-
-		if len(dailyLog.Entries) == 0 {
+		if len(entries) == 0 {
 			fmt.Printf("  %s\n", color.New(color.FgHiBlack).Sprintf("· No entries found for %s", summaryDate.Format("2006-01-02")))
 			return nil
 		}
 
-		grouped := groupByProject(dailyLog.Entries)
+		grouped := groupByProject(entries)
 
 		if ai && style == "" {
 			style = viper.GetString("defaults.style")
@@ -82,11 +78,6 @@ Examples:
 			aiGenerated = true
 		}
 
-		summariesDir := filepath.Join(home, "summaries")
-		if err := os.MkdirAll(summariesDir, 0755); err != nil {
-			return fmt.Errorf("%s failed to create summaries directory: %w", color.RedString("✗"), err)
-		}
-
 		summary := store.Summary{
 			ID:          summaryDate.Format("2006-01-02"),
 			Date:        summaryDate,
@@ -96,8 +87,7 @@ Examples:
 			Content:     content,
 		}
 
-		summaryFile := filepath.Join(summariesDir, summaryDate.Format("2006-01-02")+".md")
-		if err := store.SaveSummary(summaryFile, summary); err != nil {
+		if err := repo.SaveSummary(summary); err != nil {
 			return fmt.Errorf("%s %s", color.RedString("✗"), err)
 		}
 

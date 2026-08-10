@@ -3,8 +3,6 @@ package entry
 import (
 	"devlog/internal/store"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -38,14 +36,11 @@ Examples:
   devlog list --week
   devlog list --project echo
   devlog entry list --date 2026-04-13`,
-		Run: func(cmd *cobra.Command, args []string) {
-			home, err := store.ConfigPath()
+		RunE: func(cmd *cobra.Command, args []string) error {
+			repo, err := store.OpenRepository()
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "%s %s\n", color.RedString("✗"), err)
-				return
+				return err
 			}
-
-			entriesDir := filepath.Join(home, "entries")
 
 			today := time.Now().Format("2006-01-02")
 			logDate := today
@@ -53,21 +48,16 @@ Examples:
 			if date != "" {
 				parsedDate, err := time.Parse("2006-01-02", date)
 				if err != nil {
-					fmt.Fprintf(os.Stderr, "%s invalid date format, expected YYYY-MM-DD\n", color.RedString("✗"))
-					return
+					return fmt.Errorf("invalid date format, expected YYYY-MM-DD")
 				}
 				logDate = parsedDate.Format("2006-01-02")
 			}
 
-			logFile := filepath.Join(entriesDir, logDate+".json")
-
-			dailyLog, err := store.LoadDailyLog(logFile)
+			parsedLogDate, _ := time.Parse("2006-01-02", logDate)
+			entries, err := repo.Entries(parsedLogDate)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "%s %s\n", color.RedString("✗"), err)
-				return
+				return err
 			}
-
-			entries := dailyLog.Entries
 
 			if len(entries) == 0 {
 				label := logDate
@@ -75,7 +65,7 @@ Examples:
 					label = "today"
 				}
 				fmt.Printf("%s No entries for %s\n", dimColor.Sprint("·"), label)
-				return
+				return nil
 			}
 
 			t, _ := time.Parse("2006-01-02", logDate)
@@ -105,6 +95,7 @@ Examples:
 				noun = "entries"
 			}
 			fmt.Printf("  %s\n\n", dimColor.Sprintf("%d %s", len(entries), noun))
+			return nil
 		},
 	}
 

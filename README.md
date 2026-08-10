@@ -18,7 +18,10 @@ DevLog is intended to be useful both directly from the terminal and through codi
 - Generate a basic Markdown summary for a specific day
 - Show a previously generated summary
 - List previously generated summaries with date-range filters
-- Store all data locally under `~/.devlog/`
+- Store entries as conflict-resistant individual files under `~/.devlog/data/`
+- Synchronize data across machines through a private Git repository
+- Import GitHub activity (commits, authored PRs, PR reviews) as entries with `devlog sync`
+- Generate AI-polished summaries (`--ai`, four style templates) and LLM-rewritten sync descriptions (`--polish`) via any OpenAI-compatible endpoint
 - Report version/build info and self-update from GitHub releases
 
 ---
@@ -55,6 +58,9 @@ Example summary output:
 date: 2026-04-14
 style: concise
 projects: Echo, BitFinance
+aiGenerated: false
+generatedAt: 2026-04-14T18:20:00Z
+deviceId: 62c47f36-08f8-4d43-9f48-a303481b18fc
 ---
 **Echo**
 - Implemented JWT auth middleware
@@ -103,13 +109,20 @@ DevLog stores data locally under:
 ```text
 ~/.devlog/
 ├── config.json
-├── entries/
-│   └── 2026-04-14.json
-└── summaries/
-    └── 2026-04-14.md
+├── device-id
+├── data/
+│   ├── .devlog-version
+│   ├── entries/
+│   │   └── 2026-04-14/
+│   │       └── <entry-id>.json
+│   └── summaries/
+│       └── 2026-04-14.md
+└── backups/
 ```
 
-Entry files are JSON. Summary files are Markdown with YAML frontmatter.
+Entry files are JSON. Summary files are Markdown with YAML frontmatter. Configuration, API credentials, logs, and the local device ID remain outside the synchronized `data/` repository.
+
+Older daily JSON logs are migrated automatically on first use. Run `devlog migrate` explicitly to perform the migration ahead of time. Legacy data is copied to a timestamped directory under `~/.devlog/backups/` before conversion.
 
 ---
 
@@ -124,6 +137,18 @@ devlog init
 ```
 
 Current note: this command uses safe config creation and will not overwrite an existing config file.
+
+---
+
+### `devlog migrate`
+
+Converts legacy daily JSON logs to the conflict-resistant per-entry layout. Normal commands also perform this migration automatically when needed.
+
+```bash
+devlog migrate
+```
+
+The original data is copied to a timestamped backup before the current data-version marker is written.
 
 ---
 
@@ -151,6 +176,92 @@ Examples:
 devlog add "Implemented refresh token rotation" -p echo -t backend,auth
 devlog add "Reviewed checkout API" -p shop --date 2026-04-14
 ```
+
+---
+
+### `devlog sync`
+
+Imports your GitHub activity for a date — commits, pull requests you authored, and pull requests you reviewed — as entries for that day. Private repositories are included as long as the token can access them.
+
+```bash
+devlog sync [options]
+```
+
+Options currently implemented:
+
+| Option | Description |
+|---|---|
+| `--date <YYYY-MM-DD>` | Date to sync. Defaults to today. |
+| `--dry-run` | Print what would be imported without writing entries. |
+| `--polish` | Rewrite descriptions with an LLM before saving (requires `llm.enabled` in config). On LLM failure the raw descriptions are kept. |
+| `--remote` | Pull before importing GitHub activity and push the resulting entries afterward. |
+
+Setup:
+
+- Set `github.username` in `~/.devlog/config.json`.
+- Put a GitHub token in the environment variable named by `github.tokenEnvVar` (default `GITHUB_TOKEN`). The token needs the `repo` scope (classic) or Contents read and Pull requests read access (fine-grained); authorize it for SSO if your organization requires it.
+
+Re-running `sync` for the same date skips already-imported items, so it is safe to schedule.
+
+#### Automatic sync
+
+Install a daily job using `launchd` on macOS or the user crontab on Linux:
+
+```bash
+devlog sync schedule --daily-at 23:55
+devlog sync schedule --daily-at 18:00 --polish --remote --env-file ~/.devlog/sync.env
+devlog sync schedule show
+devlog sync schedule remove
+```
+
+Scheduled jobs do not normally inherit an interactive shell's environment. To provide credentials, create a protected environment file:
+
+```bash
+mkdir -p ~/.devlog
+printf 'GITHUB_TOKEN=your-token\nDEEPSEEK_API_KEY=your-key\n' > ~/.devlog/sync.env
+chmod 600 ~/.devlog/sync.env
+```
+
+Pass it with `--env-file` when installing the schedule. The file accepts `KEY=VALUE` lines and is read directly by DevLog; it is never copied into the cron or launchd definition. Job output is appended to `~/.devlog/sync.log`.
+
+With `--remote`, the scheduled job pulls remote DevLog changes, imports GitHub activity, and pushes the combined result. Remote failures return a nonzero exit status and local entries remain available for the next retry.
+
+Examples:
+
+```bash
+devlog sync
+devlog sync --date 2026-08-05 --dry-run
+```
+
+---
+
+### `devlog remote`
+
+Synchronizes the local data directory through a private Git repository. DevLog uses the installed `git` executable so existing SSH keys and Git credential helpers continue to work.
+
+```bash
+# First machine
+devlog remote init git@github.com:you/devlog-data.git
+
+# Additional machines use the same command and repository
+devlog remote init git@github.com:you/devlog-data.git
+
+devlog remote status
+devlog remote sync
+devlog remote remove
+```
+
+`remote init` migrates existing data, commits it locally, merges existing remote data, and pushes the result. `remote remove` only disconnects the remote; it does not delete local files or the Git repository on the server.
+
+Remote synchronization:
+
+- merges entries by stable UUID or external `source`;
+- gives GitHub-imported entries deterministic IDs, preventing duplicate imports across machines;
+- retries concurrent non-fast-forward pushes up to three times;
+- keeps the newer summary during a conflict and preserves the other version under `summaries/conflicts/`;
+- operates without an interactive Git credential prompt, making authentication failures visible to scheduled jobs.
+
+Use a private repository because DevLog entries may contain sensitive work information. For unattended scheduling, configure SSH or a Git credential helper that works outside an interactive shell.
 
 ---
 
@@ -189,15 +300,18 @@ devlog summary create [options]
 
 Options currently implemented:
 
-| Option | Description |
-|---|---|
-| `--date <YYYY-MM-DD>` | Summarize a specific date. Defaults to today. |
+| Option | Short | Description |
+|---|---:|---|
+| `--date <YYYY-MM-DD>` | | Summarize a specific date. Defaults to today. |
+| `--ai` | | Use an LLM to produce a polished narrative (requires `llm.enabled` in config). |
+| `--style <style>` | `-s` | Output style: concise, detailed, formal, impersonal. Only valid with `--ai`; defaults to `defaults.style` from config. |
 
 Examples:
 
 ```bash
 devlog summary create
 devlog summary create --date 2026-04-14
+devlog summary create --ai --style formal
 ```
 
 ---
@@ -316,14 +430,44 @@ Default shape:
     "style": "concise",
     "language": "pt-BR"
   },
+  "github": {
+    "username": "",
+    "tokenEnvVar": "GITHUB_TOKEN"
+  },
   "llm": {
     "enabled": false,
     "provider": "openrouter",
     "model": "openai/gpt-oss-120b:free",
     "apiKeyEnvVar": "OPENROUTER_API_KEY"
+  },
+  "remote": {
+    "enabled": false,
+    "url": "",
+    "branch": "main"
+  },
+  "storage": {
+    "path": ""
   }
 }
 ```
+
+An empty `storage.path` uses `~/.devlog/data`. A custom path must be a dedicated data directory and cannot contain `~/.devlog/config.json` or credential files.
+
+### LLM settings
+
+The `llm` section powers `devlog summary create --ai` and `devlog sync --polish`:
+
+| Key | Description |
+|---|---|
+| `enabled` | Must be `true` for LLM features to run. |
+| `provider` | `openrouter`, `openai`, or `deepseek`. For any other OpenAI-compatible endpoint, set `baseURL` instead. |
+| `baseURL` | Optional. Overrides the provider's API base URL (e.g. a local or self-hosted endpoint). |
+| `model` | Model identifier passed to the API. |
+| `apiKeyEnvVar` | Name of the environment variable holding the API key. The key itself is never stored in the config. |
+
+`defaults.language` is included in LLM prompts for both AI summaries and polished sync entries. Use a language tag such as `pt-BR` or `en-US`.
+
+For DeepSeek, set `provider` to `deepseek`, choose a DeepSeek model (for example `deepseek-chat`), and set `apiKeyEnvVar` to the environment variable containing your DeepSeek API key.
 
 The config command interface is planned but not fully implemented yet.
 
@@ -346,7 +490,6 @@ The following features are planned or partially scaffolded, but should not be tr
 ### Summaries
 
 - `devlog summary create --week`
-- `devlog summary create --style concise|detailed|formal|impersonal`
 - `devlog summary create --format <template>`
 - summary templates from `~/.devlog/templates/`
 
@@ -355,15 +498,6 @@ The following features are planned or partially scaffolded, but should not be tr
 - `devlog config list`
 - `devlog config get <key>`
 - `devlog config set <key> <value>`
-
-### AI-Enhanced Summaries
-
-- `devlog summary create --ai`
-- optional LLM narrative polishing
-- support for configured provider/model/API key
-- output language based on config, e.g. `pt-BR` or `en-US`
-
----
 
 ## Built With
 

@@ -3,8 +3,6 @@ package entry
 import (
 	"devlog/internal/store"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -32,17 +30,10 @@ Examples:
   devlog add "Implemented refresh token rotation" -p echo -t backend,auth
   devlog entry add "Reviewed checkout API" -p shop --date 2026-04-14`,
 		Args: cobra.MinimumNArgs(1),
-		Run: func(cmd *cobra.Command, args []string) {
-			home, err := store.ConfigPath()
+		RunE: func(cmd *cobra.Command, args []string) error {
+			repo, err := store.OpenRepository()
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "%s %s\n", color.RedString("✗"), err)
-				return
-			}
-
-			entriesDir := filepath.Join(home, "entries")
-			if err := os.MkdirAll(entriesDir, 0755); err != nil {
-				fmt.Fprintf(os.Stderr, "%s could not create entries directory: %s\n", color.RedString("✗"), err)
-				return
+				return err
 			}
 
 			var entryDate time.Time
@@ -51,8 +42,7 @@ Examples:
 			} else {
 				entryDate, err = time.Parse("2006-01-02", date)
 				if err != nil {
-					fmt.Fprintf(os.Stderr, "%s invalid date format, expected YYYY-MM-DD\n", color.RedString("✗"))
-					return
+					return fmt.Errorf("invalid date format, expected YYYY-MM-DD")
 				}
 			}
 
@@ -76,24 +66,14 @@ Examples:
 				Description: strings.Join(args, " "),
 				Tags:        tags,
 				CreatedAt:   time.Now(),
+				UpdatedAt:   time.Now(),
 			}
-
-			logFile := filepath.Join(entriesDir, entryDate.Format("2006-01-02")+".json")
-
-			dailyLog, err := store.LoadDailyLog(logFile)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "%s %s\n", color.RedString("✗"), err)
-				return
-			}
-			dailyLog.Date = entryDate.Format("2006-01-02")
-			dailyLog.Entries = append(dailyLog.Entries, entry)
-
-			if err := store.SaveDailyLog(logFile, dailyLog); err != nil {
-				fmt.Fprintf(os.Stderr, "%s %s\n", color.RedString("✗"), err)
-				return
+			if _, err := repo.AddEntries(entryDate, []store.Entry{entry}); err != nil {
+				return err
 			}
 
 			fmt.Printf("%s new entry successfully added\n", color.GreenString("✔"))
+			return nil
 		},
 	}
 

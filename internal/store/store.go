@@ -18,30 +18,40 @@ type DailyLog struct {
 }
 
 type Entry struct {
-	Id          string    `json:"id"`
-	Project     string    `json:"project"`
-	Description string    `json:"description"`
-	Tags        []string  `json:"tags"`
-	CreatedAt   time.Time `json:"createdAt"`
+	Id          string     `json:"id"`
+	Project     string     `json:"project"`
+	Description string     `json:"description"`
+	Tags        []string   `json:"tags"`
+	CreatedAt   time.Time  `json:"createdAt"`
+	UpdatedAt   time.Time  `json:"updatedAt,omitempty"`
+	DeletedAt   *time.Time `json:"deletedAt,omitempty"`
+	// Source identifies the external origin of an entry (e.g. "github:commit:<sha>"),
+	// used to keep repeated syncs idempotent. Empty for manually added entries.
+	Source string `json:"source,omitempty"`
 }
 
 type Summary struct {
-	ID string // "2026-04-21", used as filename
-	Date time.Time
-	Projects []ProjectGroup
-	Style string
+	ID          string // "2026-04-21", used as filename
+	Date        time.Time
+	Projects    []ProjectGroup
+	Style       string
 	AIGenerated bool
-	Content string
+	GeneratedAt time.Time
+	DeviceID    string
+	Content     string
 }
 
 type SummaryMeta struct {
-    Date     string `yaml:"date"`
-    Style    string `yaml:"style"`
-    Projects string `yaml:"projects"`
+	Date        string    `yaml:"date"`
+	Style       string    `yaml:"style"`
+	Projects    string    `yaml:"projects"`
+	AIGenerated bool      `yaml:"aiGenerated,omitempty"`
+	GeneratedAt time.Time `yaml:"generatedAt,omitempty"`
+	DeviceID    string    `yaml:"deviceId,omitempty"`
 }
 
 type ProjectGroup struct {
-	Name string
+	Name    string
 	Entries []Entry
 }
 
@@ -80,6 +90,10 @@ func LoadSummary(filePath string) (Summary, error) {
 		return Summary{}, fmt.Errorf("error reading summary file: %w", err)
 	}
 
+	return ParseSummary(data)
+}
+
+func ParseSummary(data []byte) (Summary, error) {
 	parts := strings.SplitN(string(data), "---", 3)
 	if len(parts) < 3 {
 		return Summary{}, fmt.Errorf("invalid summary file: missing frontmatter")
@@ -103,29 +117,52 @@ func LoadSummary(filePath string) (Summary, error) {
 	}
 
 	return Summary{
-		ID:       meta.Date,
-		Date:     date,
-		Style:    meta.Style,
-		Projects: projects,
-		Content:  strings.TrimSpace(parts[2]),
+		ID:          meta.Date,
+		Date:        date,
+		Style:       meta.Style,
+		Projects:    projects,
+		AIGenerated: meta.AIGenerated,
+		GeneratedAt: meta.GeneratedAt,
+		DeviceID:    meta.DeviceID,
+		Content:     strings.TrimSpace(parts[2]),
 	}, nil
 }
 
 func SaveSummary(filePath string, summary Summary) error {
+	return saveSummaryAtomic(filePath, summary)
+}
+
+func saveSummaryAtomic(filePath string, summary Summary) error {
+	content := EncodeSummary(summary)
+	if err := atomicWrite(filePath, content, 0644); err != nil {
+		return fmt.Errorf("error writing summary file: %w", err)
+	}
+	return nil
+}
+
+func EncodeSummary(summary Summary) []byte {
 	projectNames := make([]string, len(summary.Projects))
 	for i, p := range summary.Projects {
 		projectNames[i] = p.Name
 	}
-	content := fmt.Sprintf("---\ndate: %s\nstyle: %s\nprojects: %s\n---\n%s\n",
+	content := fmt.Sprintf("---\ndate: %s\nstyle: %s\nprojects: %s\naiGenerated: %t\ngeneratedAt: %s\ndeviceId: %s\n---\n%s\n",
 		summary.Date.Format("2006-01-02"),
 		summary.Style,
 		strings.Join(projectNames, ", "),
+		summary.AIGenerated,
+		summary.GeneratedAt.UTC().Format(time.RFC3339Nano),
+		summary.DeviceID,
 		summary.Content,
 	)
-	if err := os.WriteFile(filePath, []byte(content), 0644); err != nil {
-		return fmt.Errorf("error writing summary file: %w", err)
+	return []byte(content)
+}
+
+func marshalEntry(entry Entry) ([]byte, error) {
+	data, err := json.MarshalIndent(entry, "", "  ")
+	if err != nil {
+		return nil, err
 	}
-	return nil
+	return append(data, '\n'), nil
 }
 
 func Init() error {
@@ -135,7 +172,7 @@ func Init() error {
 	}
 
 	if err := os.MkdirAll(path, 0755); err != nil {
-    	return fmt.Errorf("fatal error creating application directory: %w", err)
+		return fmt.Errorf("fatal error creating application directory: %w", err)
 	}
 
 	viper.AddConfigPath(path)
@@ -145,10 +182,16 @@ func Init() error {
 	viper.Set("defaults.project", "default")
 	viper.Set("defaults.style", "concise")
 	viper.Set("defaults.language", "pt-BR")
+	viper.Set("storage.path", "")
 	viper.Set("llm.enabled", false)
 	viper.Set("llm.provider", "openrouter")
 	viper.Set("llm.model", "openai/gpt-oss-120b:free")
 	viper.Set("llm.apiKeyEnvVar", "OPENROUTER_API_KEY")
+	viper.Set("github.username", "")
+	viper.Set("github.tokenEnvVar", "GITHUB_TOKEN")
+	viper.Set("remote.enabled", false)
+	viper.Set("remote.url", "")
+	viper.Set("remote.branch", "main")
 
 	if err := viper.SafeWriteConfig(); err != nil {
 		return fmt.Errorf("fatal error writing config file: %w", err)

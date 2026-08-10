@@ -115,7 +115,7 @@ func (m *Manager) syncLocked(ctx context.Context) error {
 }
 
 func (m *Manager) mergeRemote(ctx context.Context) error {
-	_, err := m.git(ctx, "merge", "--no-edit", "--allow-unrelated-histories", "origin/"+m.Branch)
+	_, err := m.git(ctx, "-c", "user.name=DevLog", "-c", "user.email=devlog@local", "merge", "--no-edit", "--allow-unrelated-histories", "origin/"+m.Branch)
 	if err == nil {
 		if err := m.reconcileDuplicateSources(); err != nil {
 			return err

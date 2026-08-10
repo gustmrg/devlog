@@ -199,7 +199,7 @@ Options currently implemented:
 Setup:
 
 - Set `github.username` in `~/.devlog/config.json`.
-- Put a GitHub token in the environment variable named by `github.tokenEnvVar` (default `GITHUB_TOKEN`). The token needs the `repo` scope (classic) or Contents read access (fine-grained); authorize it for SSO if your organization requires it.
+- Put a GitHub token in the environment variable named by `github.tokenEnvVar` (default `GITHUB_TOKEN`). The token needs the `repo` scope (classic) or Contents read and Pull requests read access (fine-grained); authorize it for SSO if your organization requires it.
 
 Re-running `sync` for the same date skips already-imported items, so it is safe to schedule.
 

@@ -262,7 +262,7 @@ func (m *Manager) reconcileDuplicateSources() error {
 		path string
 		data []byte
 	}
-	bySource := map[string]found{}
+	byDateAndSource := map[string]found{}
 	return filepath.WalkDir(root, func(path string, item os.DirEntry, err error) error {
 		if err != nil {
 			if os.IsNotExist(err) {
@@ -281,9 +281,10 @@ func (m *Manager) reconcileDuplicateSources() error {
 		if json.Unmarshal(data, &entry) != nil || entry.Source == "" {
 			return nil
 		}
-		previous, exists := bySource[entry.Source]
+		key := filepath.Dir(path) + "\x00" + entry.Source
+		previous, exists := byDateAndSource[key]
 		if !exists {
-			bySource[entry.Source] = found{path: path, data: data}
+			byDateAndSource[key] = found{path: path, data: data}
 			return nil
 		}
 		winner := newerEntry(previous.data, data)
@@ -293,7 +294,7 @@ func (m *Manager) reconcileDuplicateSources() error {
 		if err := os.Remove(previous.path); err != nil {
 			return err
 		}
-		bySource[entry.Source] = found{path: path, data: data}
+		byDateAndSource[key] = found{path: path, data: data}
 		return nil
 	})
 }

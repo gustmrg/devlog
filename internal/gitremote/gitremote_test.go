@@ -117,6 +117,50 @@ func TestTwoMachineSynchronization(t *testing.T) {
 	}
 }
 
+func TestSynchronizationPreservesSameSourceOnDifferentDates(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git is not installed")
+	}
+	ctx := context.Background()
+	root := t.TempDir()
+	bare := filepath.Join(root, "remote.git")
+	if output, err := exec.Command("git", "init", "--bare", bare).CombinedOutput(); err != nil {
+		t.Fatalf("git init --bare failed: %s", output)
+	}
+
+	repoA := newTestRepository(t, filepath.Join(root, "machine-a"))
+	repoB := newTestRepository(t, filepath.Join(root, "machine-b"))
+	managerA := New(repoA, bare, "main")
+	managerB := New(repoB, bare, "main")
+	if err := managerA.Init(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if err := managerB.Init(ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	firstDate := time.Date(2026, 8, 8, 0, 0, 0, 0, time.UTC)
+	secondDate := firstDate.AddDate(0, 0, 1)
+	legacySource := "github:review:acme/widgets#42"
+	_, err := repoA.AddEntries(firstDate, []store.Entry{{Source: legacySource, Description: "first review", CreatedAt: firstDate}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = repoB.AddEntries(secondDate, []store.Entry{{Source: legacySource, Description: "second review", CreatedAt: secondDate}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := managerA.Sync(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if err := managerB.Sync(ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	assertEntryCount(t, repoB, firstDate, 1)
+	assertEntryCount(t, repoB, secondDate, 1)
+}
+
 func newTestRepository(t *testing.T, root string) *store.Repository {
 	t.Helper()
 	configRoot := filepath.Join(root, "config")

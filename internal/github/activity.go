@@ -1,8 +1,12 @@
 package github
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"strings"
 	"time"
 
@@ -26,21 +30,18 @@ type CommitActivity struct {
 
 // PRActivity is a pull request the user authored or reviewed.
 type PRActivity struct {
-	Number int
-	Repo   string // "owner/repo"
-	Title  string
-	Action string // "opened", "merged" or "reviewed"
-	URL    string
+	Number     int
+	Repo       string // "owner/repo"
+	Title      string
+	Action     string // "opened", "merged" or "reviewed"
+	URL        string
+	OccurredAt time.Time
 }
-
-// searchOpts requests the maximum page size; a single page (100 items) is
-// plenty for one day of activity.
-var searchOpts = &gh.SearchOptions{ListOptions: gh.ListOptions{PerPage: 100}}
 
 // FetchActivity collects the user's commits, authored PRs and PR reviews
 // for the given date using the GitHub search API. Private repositories are
 // included as long as the client's token has access to them.
-func FetchActivity(ctx context.Context, client *gh.Client, username string, date time.Time) (Activity, error) {
+func FetchActivity(ctx context.Context, client *Client, username string, date time.Time) (Activity, error) {
 	if username == "" {
 		return Activity{}, fmt.Errorf("github.username is not set in the devlog config")
 	}
@@ -70,26 +71,42 @@ func FetchActivity(ctx context.Context, client *gh.Client, username string, date
 	return activity, nil
 }
 
-func fetchCommits(ctx context.Context, client *gh.Client, username, date string) ([]CommitActivity, error) {
+func fetchCommits(ctx context.Context, client *Client, username, date string) ([]CommitActivity, error) {
 	query := fmt.Sprintf("author:%s committer-date:%s", username, date)
-	result, _, err := client.Search.Commits(ctx, query, searchOpts)
-	if err != nil {
-		return nil, fmt.Errorf("error searching commits: %w", err)
-	}
-
 	var commits []CommitActivity
-	for _, item := range result.Commits {
-		commits = append(commits, CommitActivity{
-			SHA:     item.GetSHA(),
-			Repo:    item.GetRepository().GetFullName(),
-			Message: firstLine(item.GetCommit().GetMessage()),
-			URL:     item.GetHTMLURL(),
-		})
+	opts := &gh.SearchOptions{ListOptions: gh.ListOptions{PerPage: 100}}
+	expected := 0
+	for {
+		result, response, err := client.REST.Search.Commits(ctx, query, opts)
+		if err != nil {
+			return nil, fmt.Errorf("error searching commits: %w", err)
+		}
+		if result.GetIncompleteResults() {
+			return nil, fmt.Errorf("error searching commits: GitHub returned incomplete results")
+		}
+		if expected == 0 {
+			expected = result.GetTotal()
+		}
+		for _, item := range result.Commits {
+			commits = append(commits, CommitActivity{
+				SHA:     item.GetSHA(),
+				Repo:    item.GetRepository().GetFullName(),
+				Message: firstLine(item.GetCommit().GetMessage()),
+				URL:     item.GetHTMLURL(),
+			})
+		}
+		if response.NextPage == 0 {
+			break
+		}
+		opts.Page = response.NextPage
+	}
+	if len(commits) < expected {
+		return nil, fmt.Errorf("error searching commits: GitHub returned %d of %d results", len(commits), expected)
 	}
 	return commits, nil
 }
 
-func fetchAuthoredPRs(ctx context.Context, client *gh.Client, username, date string) ([]PRActivity, error) {
+func fetchAuthoredPRs(ctx context.Context, client *Client, username, date string) ([]PRActivity, error) {
 	queries := []struct {
 		q      string
 		action string
@@ -101,33 +118,156 @@ func fetchAuthoredPRs(ctx context.Context, client *gh.Client, username, date str
 	var prs []PRActivity
 	seen := map[string]bool{}
 	for _, query := range queries {
-		result, _, err := client.Search.Issues(ctx, query.q, searchOpts)
-		if err != nil {
-			return nil, fmt.Errorf("error searching pull requests: %w", err)
-		}
-		for _, issue := range result.Issues {
-			pr := prFromIssue(issue, query.action)
-			key := fmt.Sprintf("%s#%d", pr.Repo, pr.Number)
-			if seen[key] {
-				continue
+		opts := &gh.SearchOptions{ListOptions: gh.ListOptions{PerPage: 100}}
+		collected := 0
+		expected := 0
+		for {
+			result, response, err := client.REST.Search.Issues(ctx, query.q, opts)
+			if err != nil {
+				return nil, fmt.Errorf("error searching pull requests: %w", err)
 			}
-			seen[key] = true
-			prs = append(prs, pr)
+			if result.GetIncompleteResults() {
+				return nil, fmt.Errorf("error searching pull requests: GitHub returned incomplete results")
+			}
+			if expected == 0 {
+				expected = result.GetTotal()
+			}
+			collected += len(result.Issues)
+			for _, issue := range result.Issues {
+				pr := prFromIssue(issue, query.action)
+				key := fmt.Sprintf("%s#%d:%s", pr.Repo, pr.Number, pr.Action)
+				if seen[key] {
+					continue
+				}
+				seen[key] = true
+				prs = append(prs, pr)
+			}
+			if response.NextPage == 0 {
+				break
+			}
+			opts.Page = response.NextPage
+		}
+		if collected < expected {
+			return nil, fmt.Errorf("error searching pull requests: GitHub returned %d of %d results", collected, expected)
 		}
 	}
 	return prs, nil
 }
 
-func fetchReviews(ctx context.Context, client *gh.Client, username, date string) ([]PRActivity, error) {
-	query := fmt.Sprintf("type:pr reviewed-by:%s -author:%s updated:%s", username, username, date)
-	result, _, err := client.Search.Issues(ctx, query, searchOpts)
+func fetchReviews(ctx context.Context, client *Client, username, date string) ([]PRActivity, error) {
+	parsedDate, err := time.Parse("2006-01-02", date)
 	if err != nil {
-		return nil, fmt.Errorf("error searching reviewed pull requests: %w", err)
+		return nil, fmt.Errorf("error preparing review search: %w", err)
+	}
+	from := parsedDate.UTC()
+	to := from.AddDate(0, 0, 1)
+	query := `query($login: String!, $from: DateTime!, $to: DateTime!, $after: String) {
+  user(login: $login) {
+    contributionsCollection(from: $from, to: $to) {
+      pullRequestReviewContributions(first: 100, after: $after) {
+        nodes {
+          occurredAt
+          pullRequest { number title url repository { nameWithOwner } }
+        }
+        pageInfo { hasNextPage endCursor }
+      }
+    }
+  }
+}`
+	type graphQLError struct {
+		Message string `json:"message"`
+	}
+	type contribution struct {
+		OccurredAt  time.Time `json:"occurredAt"`
+		PullRequest struct {
+			Number     int    `json:"number"`
+			Title      string `json:"title"`
+			URL        string `json:"url"`
+			Repository struct {
+				NameWithOwner string `json:"nameWithOwner"`
+			} `json:"repository"`
+		} `json:"pullRequest"`
+	}
+	type graphQLResponse struct {
+		Data struct {
+			User *struct {
+				ContributionsCollection struct {
+					PullRequestReviewContributions struct {
+						Nodes    []contribution `json:"nodes"`
+						PageInfo struct {
+							HasNextPage bool   `json:"hasNextPage"`
+							EndCursor   string `json:"endCursor"`
+						} `json:"pageInfo"`
+					} `json:"pullRequestReviewContributions"`
+				} `json:"contributionsCollection"`
+			} `json:"user"`
+		} `json:"data"`
+		Errors []graphQLError `json:"errors"`
 	}
 
 	var reviews []PRActivity
-	for _, issue := range result.Issues {
-		reviews = append(reviews, prFromIssue(issue, "reviewed"))
+	var after any
+	for {
+		payload, err := json.Marshal(map[string]any{
+			"query": query,
+			"variables": map[string]any{
+				"login": username,
+				"from":  from.Format(time.RFC3339),
+				"to":    to.Format(time.RFC3339),
+				"after": after,
+			},
+		})
+		if err != nil {
+			return nil, fmt.Errorf("error encoding review query: %w", err)
+		}
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, client.GraphQLURL, bytes.NewReader(payload))
+		if err != nil {
+			return nil, fmt.Errorf("error building review query: %w", err)
+		}
+		req.Header.Set("Content-Type", "application/json")
+		response, err := client.HTTP.Do(req)
+		if err != nil {
+			return nil, fmt.Errorf("error searching reviewed pull requests: %w", err)
+		}
+		body, readErr := io.ReadAll(io.LimitReader(response.Body, 1<<20))
+		response.Body.Close()
+		if readErr != nil {
+			return nil, fmt.Errorf("error reading review search response: %w", readErr)
+		}
+		if response.StatusCode != http.StatusOK {
+			return nil, fmt.Errorf("error searching reviewed pull requests: GitHub GraphQL returned status %d", response.StatusCode)
+		}
+		var result graphQLResponse
+		if err := json.Unmarshal(body, &result); err != nil {
+			return nil, fmt.Errorf("error parsing review search response: %w", err)
+		}
+		if len(result.Errors) > 0 {
+			return nil, fmt.Errorf("error searching reviewed pull requests: %s", result.Errors[0].Message)
+		}
+		if result.Data.User == nil {
+			return nil, fmt.Errorf("error searching reviewed pull requests: GitHub user %q was not found", username)
+		}
+		connection := result.Data.User.ContributionsCollection.PullRequestReviewContributions
+		for _, item := range connection.Nodes {
+			if item.OccurredAt.Before(from) || !item.OccurredAt.Before(to) {
+				continue
+			}
+			reviews = append(reviews, PRActivity{
+				Number:     item.PullRequest.Number,
+				Repo:       item.PullRequest.Repository.NameWithOwner,
+				Title:      item.PullRequest.Title,
+				Action:     "reviewed",
+				URL:        item.PullRequest.URL,
+				OccurredAt: item.OccurredAt,
+			})
+		}
+		if !connection.PageInfo.HasNextPage {
+			break
+		}
+		if connection.PageInfo.EndCursor == "" {
+			return nil, fmt.Errorf("error searching reviewed pull requests: GitHub omitted the next review cursor")
+		}
+		after = connection.PageInfo.EndCursor
 	}
 	return reviews, nil
 }

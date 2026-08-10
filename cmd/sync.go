@@ -27,7 +27,8 @@ that day's log. Works with private repositories the token can access.
 
 Requires github.username in the config and a token in the environment
 variable named by github.tokenEnvVar (default GITHUB_TOKEN). The token
-needs the "repo" scope (classic) or Contents read access (fine-grained).
+needs the "repo" scope (classic) or Contents and Pull requests read access
+(fine-grained).
 
 Re-running sync for the same date is safe: already-imported items are
 skipped.
@@ -85,7 +86,7 @@ Examples:
 			return fmt.Errorf("no token found — set the %s environment variable", tokenEnvVar)
 		}
 
-		ctx := context.Background()
+		ctx := cmd.Context()
 		client := ghsync.NewClient(ctx, token)
 
 		fmt.Printf("Fetching GitHub activity for %s (%s)...\n", username, syncDate.Format("2006-01-02"))
@@ -164,12 +165,12 @@ func mapActivity(activity ghsync.Activity) []store.Entry {
 	for _, pr := range activity.PRs {
 		action := strings.ToUpper(pr.Action[:1]) + pr.Action[1:]
 		description := fmt.Sprintf("%s PR #%d: %s", action, pr.Number, pr.Title)
-		entries = append(entries, newEntry(shortRepoName(pr.Repo), description, fmt.Sprintf("github:pr:%s#%d", pr.Repo, pr.Number), "github", "pr"))
+		entries = append(entries, newEntry(shortRepoName(pr.Repo), description, fmt.Sprintf("github:pr:%s#%d:%s", pr.Repo, pr.Number, pr.Action), "github", "pr"))
 	}
 
 	for _, pr := range activity.Reviews {
 		description := fmt.Sprintf("Reviewed PR #%d: %s", pr.Number, pr.Title)
-		entries = append(entries, newEntry(shortRepoName(pr.Repo), description, fmt.Sprintf("github:review:%s#%d", pr.Repo, pr.Number), "github", "review"))
+		entries = append(entries, newEntry(shortRepoName(pr.Repo), description, fmt.Sprintf("github:review:%s#%d:%s", pr.Repo, pr.Number, pr.OccurredAt.UTC().Format(time.RFC3339Nano)), "github", "review"))
 	}
 
 	return entries

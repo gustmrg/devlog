@@ -129,3 +129,44 @@ func TestEntryIDsCannotEscapeDataDirectory(t *testing.T) {
 		t.Fatalf("entry escaped data directory: %v", err)
 	}
 }
+
+func TestRepositoryLockBlocksUntilReleased(t *testing.T) {
+	root := t.TempDir()
+	repo := NewRepository(filepath.Join(root, "data"), root)
+	firstUnlock, err := repo.Lock()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	acquired := make(chan func(), 1)
+	errs := make(chan error, 1)
+	go func() {
+		unlock, err := repo.Lock()
+		if err != nil {
+			errs <- err
+			return
+		}
+		acquired <- unlock
+	}()
+
+	select {
+	case unlock := <-acquired:
+		unlock()
+		firstUnlock()
+		t.Fatal("second lock was acquired before the first was released")
+	case err := <-errs:
+		firstUnlock()
+		t.Fatal(err)
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	firstUnlock()
+	select {
+	case unlock := <-acquired:
+		unlock()
+	case err := <-errs:
+		t.Fatal(err)
+	case <-time.After(2 * time.Second):
+		t.Fatal("second lock did not acquire after release")
+	}
+}

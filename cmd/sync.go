@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"strings"
 	"time"
 
@@ -25,10 +26,11 @@ var syncCmd = &cobra.Command{
 authored and pull requests you reviewed — and adds them as entries to
 that day's log. Works with private repositories the token can access.
 
-Requires github.username in the config and a token in the environment
-variable named by github.tokenEnvVar (default GITHUB_TOKEN). The token
-needs the "repo" scope (classic) or Contents and Pull requests read access
-(fine-grained).
+Uses github.username when configured, otherwise discovers the authenticated
+GitHub login. Authentication comes from the environment variable named by
+github.tokenEnvVar (default GITHUB_TOKEN), falling back to an authenticated
+GitHub CLI. The token needs the "repo" scope (classic) or Contents and Pull
+requests read access (fine-grained).
 
 Re-running sync for the same date is safe: already-imported items are
 skipped.
@@ -72,22 +74,32 @@ Examples:
 			syncDate = parsed
 		}
 
-		username := viper.GetString("github.username")
-		if username == "" {
-			return fmt.Errorf("github.username is not set — add it to ~/.devlog/config.json")
-		}
-
 		tokenEnvVar := viper.GetString("github.tokenEnvVar")
 		if tokenEnvVar == "" {
 			tokenEnvVar = "GITHUB_TOKEN"
 		}
-		token := os.Getenv(tokenEnvVar)
-		if token == "" {
-			return fmt.Errorf("no token found — set the %s environment variable", tokenEnvVar)
+		token, tokenSource, err := resolveGitHubToken(cmd.Context(), tokenEnvVar)
+		if err != nil {
+			return err
 		}
 
 		ctx := cmd.Context()
 		client := ghsync.NewClient(ctx, token)
+		username := viper.GetString("github.username")
+		if username == "" {
+			user, _, err := client.REST.Users.Get(ctx, "")
+			if err != nil {
+				return fmt.Errorf("github.username is not set and the authenticated user could not be discovered: %w", err)
+			}
+			username = user.GetLogin()
+			if username == "" {
+				return fmt.Errorf("github.username is not set and GitHub returned an empty authenticated login")
+			}
+			fmt.Printf("Using authenticated GitHub user %s.\n", username)
+		}
+		if tokenSource == "gh" {
+			fmt.Println("Using authentication from GitHub CLI.")
+		}
 
 		fmt.Printf("Fetching GitHub activity for %s (%s)...\n", username, syncDate.Format("2006-01-02"))
 		activity, err := ghsync.FetchActivity(ctx, client, username, syncDate)
@@ -139,6 +151,26 @@ Examples:
 		}
 		return nil
 	},
+}
+
+func resolveGitHubToken(ctx context.Context, envVar string) (string, string, error) {
+	if token := strings.TrimSpace(os.Getenv(envVar)); token != "" {
+		return token, "environment", nil
+	}
+
+	path, err := exec.LookPath("gh")
+	if err != nil {
+		return "", "", fmt.Errorf("no token found in %s and GitHub CLI is not installed", envVar)
+	}
+	output, err := exec.CommandContext(ctx, path, "auth", "token").Output()
+	if err != nil {
+		return "", "", fmt.Errorf("no token found in %s and GitHub CLI is not authenticated; run gh auth login", envVar)
+	}
+	token := strings.TrimSpace(string(output))
+	if token == "" {
+		return "", "", fmt.Errorf("GitHub CLI returned an empty authentication token")
+	}
+	return token, "gh", nil
 }
 
 // mapActivity converts fetched GitHub activity into store entries.

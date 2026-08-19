@@ -199,8 +199,8 @@ Options currently implemented:
 
 Setup:
 
-- Set `github.username` in `~/.devlog/config.json`.
-- Put a GitHub token in the environment variable named by `github.tokenEnvVar` (default `GITHUB_TOKEN`). The token needs the `repo` scope (classic) or Contents read and Pull requests read access (fine-grained); authorize it for SSO if your organization requires it.
+- Set the username with `devlog config set github.username <username>`, or leave it empty to use the account authenticated by GitHub CLI.
+- Put a GitHub token in the environment variable named by `github.tokenEnvVar` (default `GITHUB_TOKEN`). If it is absent and an authenticated GitHub CLI is installed, DevLog uses `gh auth token` automatically. The token needs the `repo` scope (classic) or Contents read and Pull requests read access (fine-grained); authorize it for SSO if your organization requires it.
 
 Re-running `sync` for the same date skips already-imported items, so it is safe to schedule.
 
@@ -470,7 +470,15 @@ The `llm` section powers `devlog summary create --ai` and `devlog sync --polish`
 
 For DeepSeek, set `provider` to `deepseek`, choose a DeepSeek model (for example `deepseek-chat`), and set `apiKeyEnvVar` to the environment variable containing your DeepSeek API key.
 
-The config command interface is planned but not fully implemented yet.
+Use the config command to inspect and update settings without editing JSON:
+
+```bash
+devlog config list
+devlog config get github.username
+devlog config set github.username your-login
+devlog config set github.tokenEnvVar GITHUB_TOKEN
+devlog config set llm.enabled true
+```
 
 ---
 
@@ -493,12 +501,6 @@ The following features are planned or partially scaffolded, but should not be tr
 - `devlog summary create --week`
 - `devlog summary create --format <template>`
 - summary templates from `~/.devlog/templates/`
-
-### Configuration
-
-- `devlog config list`
-- `devlog config get <key>`
-- `devlog config set <key> <value>`
 
 ## Built With
 

@@ -74,30 +74,21 @@ deviceId: 62c47f36-08f8-4d43-9f48-a303481b18fc
 
 ## Installation
 
-### Install with the script
-
-The repository includes an installer for macOS and Linux. It downloads the
-latest published release for the current operating system and CPU architecture,
-verifies its SHA-256 checksum, installs it in `/usr/local/bin`, and initializes
-`~/.devlog/config.json` if it does not already exist. The script is safe to run
-again and preserves an existing configuration.
+Install the latest release on macOS or Linux with:
 
 ```bash
-./scripts/install.sh
+curl -fsSL https://raw.githubusercontent.com/gustmrg/devlog/main/scripts/install.sh | sh
 ```
 
-If `/usr/local/bin` requires elevated permissions, the installer requests
-`sudo` only for copying the binary.
+The script detects the operating system and CPU architecture, verifies the
+release checksum, and installs `devlog` in `/usr/local/bin`. It has no options
+or configuration variants. If necessary, it requests `sudo` only when copying
+the binary.
 
-The installer requires `curl`, `tar`, and either `sha256sum` or `shasum`.
+Initialize DevLog after installation:
 
-Windows users should download the latest `windows_amd64.zip` release manually;
-`install.sh` is a POSIX shell script for macOS and Linux.
-
-The application data and configuration remain in your user home directory:
-
-```text
-~/.devlog/config.json
+```bash
+devlog init
 ```
 
 Verify the installation:
@@ -106,31 +97,9 @@ Verify the installation:
 devlog version
 ```
 
-### Download binary manually
-
-You can also download the latest release for your platform from the [releases page](https://github.com/gustmrg/devlog/releases).
-
-### Build from source
-
-Prerequisite: Go compatible with the version declared in `go.mod`.
-
-```bash
-git clone https://github.com/gustmrg/devlog
-cd devlog
-go build -o bin/devlog .
-```
-
-Then move the binary somewhere in your `PATH`, for example:
-
-```bash
-mv bin/devlog /usr/local/bin/
-```
-
-Initialize DevLog:
-
-```bash
-devlog init
-```
+The installer requires `curl`, `tar`, `install`, and either `sha256sum` or
+`shasum`. Windows users should download the release ZIP from the
+[releases page](https://github.com/gustmrg/devlog/releases).
 
 ---
 

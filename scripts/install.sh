@@ -14,11 +14,6 @@ cleanup() {
 
 trap cleanup EXIT
 
-if [ -z "${HOME:-}" ]; then
-    printf '%s\n' "Error: HOME is not set; cannot determine the DevLog data directory." >&2
-    exit 1
-fi
-
 for command_name in curl tar install; do
     if ! command -v "$command_name" >/dev/null 2>&1; then
         printf '%s\n' "Error: $command_name is required to install DevLog." >&2
@@ -117,11 +112,5 @@ else
     exit 1
 fi
 
-config_path="$HOME/.devlog/config.json"
-if [ ! -f "$config_path" ]; then
-    "$binary_path" init
-else
-    printf 'Keeping existing configuration at %s\n' "$config_path"
-fi
-
 printf 'Installed DevLog %s at %s\n' "$release_tag" "$binary_path"
+printf '%s\n' "Run 'devlog init' to initialize DevLog."

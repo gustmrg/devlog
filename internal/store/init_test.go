@@ -11,7 +11,9 @@ import (
 func TestInitializeIsIdempotent(t *testing.T) {
 	viper.Reset()
 	t.Cleanup(viper.Reset)
-	t.Setenv("HOME", t.TempDir())
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
 
 	first, err := Initialize()
 	if err != nil {
@@ -20,7 +22,7 @@ func TestInitializeIsIdempotent(t *testing.T) {
 	if !first.Created {
 		t.Fatal("first initialization did not report a newly created config")
 	}
-	if first.ConfigFile != filepath.Join(os.Getenv("HOME"), ".devlog", "config.json") {
+	if first.ConfigFile != filepath.Join(home, ".devlog", "config.json") {
 		t.Fatalf("unexpected config path: %s", first.ConfigFile)
 	}
 

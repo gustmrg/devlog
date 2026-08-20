@@ -49,7 +49,7 @@ Examples:
 		if envFile != "" {
 			path, err := absolutePath(envFile)
 			if err != nil {
-				return err
+				return fmt.Errorf("could not resolve environment file %q: %w", envFile, err)
 			}
 			if err := loadEnvFile(path); err != nil {
 				return fmt.Errorf("could not load environment file: %w", err)
@@ -57,7 +57,7 @@ Examples:
 		}
 		repo, err := store.OpenRepository()
 		if err != nil {
-			return err
+			return fmt.Errorf("could not open DevLog data: %w", err)
 		}
 		if remoteSync && !dryRun {
 			if err := syncConfiguredRemote(cmd.Context(), repo); err != nil {
@@ -69,7 +69,7 @@ Examples:
 		if dateFlag != "" {
 			parsed, err := time.Parse("2006-01-02", dateFlag)
 			if err != nil {
-				return fmt.Errorf("invalid date format, expected YYYY-MM-DD")
+				return fmt.Errorf("invalid --date value %q: expected YYYY-MM-DD", dateFlag)
 			}
 			syncDate = parsed
 		}
@@ -89,11 +89,11 @@ Examples:
 		if username == "" {
 			user, _, err := client.REST.Users.Get(ctx, "")
 			if err != nil {
-				return fmt.Errorf("github.username is not set and the authenticated user could not be discovered: %w", err)
+				return fmt.Errorf("could not determine the GitHub username for the authenticated account: %w; set it with devlog config set github.username <username>", err)
 			}
 			username = user.GetLogin()
 			if username == "" {
-				return fmt.Errorf("github.username is not set and GitHub returned an empty authenticated login")
+				return fmt.Errorf("GitHub returned an empty username; set one with devlog config set github.username <username>")
 			}
 			fmt.Printf("Using authenticated GitHub user %s.\n", username)
 		}
@@ -104,7 +104,7 @@ Examples:
 		fmt.Printf("Fetching GitHub activity for %s (%s)...\n", username, syncDate.Format("2006-01-02"))
 		activity, err := ghsync.FetchActivity(ctx, client, username, syncDate)
 		if err != nil {
-			return err
+			return fmt.Errorf("could not fetch GitHub activity for %s: %w", syncDate.Format("2006-01-02"), err)
 		}
 
 		entries := mapActivity(activity)
@@ -116,7 +116,7 @@ Examples:
 		if polish {
 			polished, err := polishEntries(cmd.Context(), entries)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "%s polish failed, keeping raw descriptions: %s\n", color.YellowString("!"), err)
+				fmt.Fprintf(os.Stderr, "%s Could not polish entries; using the original descriptions: %s\n", color.YellowString("!"), err)
 			} else {
 				entries = polished
 			}
@@ -132,7 +132,7 @@ Examples:
 
 		addedEntries, err := repo.AddEntries(syncDate, entries)
 		if err != nil {
-			return err
+			return fmt.Errorf("could not save imported GitHub activity: %w", err)
 		}
 		for _, e := range addedEntries {
 			fmt.Printf("%s [%s] %s\n", color.GreenString("+"), e.Project, e.Description)
@@ -160,15 +160,15 @@ func resolveGitHubToken(ctx context.Context, envVar string) (string, string, err
 
 	path, err := exec.LookPath("gh")
 	if err != nil {
-		return "", "", fmt.Errorf("no token found in %s and GitHub CLI is not installed", envVar)
+		return "", "", fmt.Errorf("GitHub authentication is required; set %s or install and authenticate the GitHub CLI", envVar)
 	}
 	output, err := exec.CommandContext(ctx, path, "auth", "token").Output()
 	if err != nil {
-		return "", "", fmt.Errorf("no token found in %s and GitHub CLI is not authenticated; run gh auth login", envVar)
+		return "", "", fmt.Errorf("GitHub authentication is required; set %s or run gh auth login", envVar)
 	}
 	token := strings.TrimSpace(string(output))
 	if token == "" {
-		return "", "", fmt.Errorf("GitHub CLI returned an empty authentication token")
+		return "", "", fmt.Errorf("GitHub CLI returned an empty token; run gh auth login again or set %s", envVar)
 	}
 	return token, "gh", nil
 }
@@ -256,7 +256,7 @@ func polishEntries(ctx context.Context, entries []store.Entry) ([]store.Entry, e
 
 	var descriptions []string
 	if err := json.Unmarshal([]byte(reply), &descriptions); err != nil {
-		return nil, fmt.Errorf("error parsing polished entries: %w", err)
+		return nil, fmt.Errorf("could not parse the LLM response as a JSON string array: %w", err)
 	}
 	if len(descriptions) != len(entries) {
 		return nil, fmt.Errorf("LLM returned %d entries, expected %d", len(descriptions), len(entries))

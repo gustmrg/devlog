@@ -18,15 +18,20 @@ var initCmd = &cobra.Command{
 	Long: `Creates the ~/.devlog/ directory structure and a default config.json.
 
 Safe to run multiple times — will not overwrite existing data.`,
-	Run: func(cmd *cobra.Command, args []string) {
-		err := store.Init()
-
+	Args: cobra.NoArgs,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		result, err := store.Initialize()
 		if err != nil {
-			fmt.Printf("%s %s\n", color.RedString("✗"), err)
-			return
+			return fmt.Errorf("could not initialize DevLog: %w", err)
 		}
 
-		fmt.Printf("%s devlog initialized successfully\n", color.GreenString("✔"))
+		if !result.Created {
+			fmt.Fprintf(cmd.OutOrStdout(), "%s DevLog is already initialized. Configuration left unchanged at %s\n", color.GreenString("✔"), result.ConfigFile)
+			return nil
+		}
+
+		fmt.Fprintf(cmd.OutOrStdout(), "%s DevLog initialized. Configuration created at %s\n", color.GreenString("✔"), result.ConfigFile)
+		return nil
 	},
 }
 

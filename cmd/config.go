@@ -97,7 +97,7 @@ func canonicalConfigKey(value string) (string, error) {
 			keys = append(keys, candidate)
 		}
 		sort.Strings(keys)
-		return "", fmt.Errorf("unknown configuration key %q; valid keys: %s", value, strings.Join(keys, ", "))
+		return "", fmt.Errorf("unknown configuration key %q; run devlog config list or choose one of: %s", value, strings.Join(keys, ", "))
 	}
 	return key, nil
 }
@@ -106,7 +106,7 @@ func parseConfigValue(key, value string) (any, error) {
 	if configurableKeys[key] == configBool {
 		parsed, err := strconv.ParseBool(value)
 		if err != nil {
-			return nil, fmt.Errorf("invalid value for %s: expected true or false", key)
+			return nil, fmt.Errorf("invalid value %q for %s: expected true or false", value, key)
 		}
 		return parsed, nil
 	}

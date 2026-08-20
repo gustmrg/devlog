@@ -26,17 +26,17 @@ var remoteInitCmd = &cobra.Command{
 		branch, _ := cmd.Flags().GetString("branch")
 		repo, err := store.OpenRepository()
 		if err != nil {
-			return err
+			return fmt.Errorf("could not open DevLog data: %w", err)
 		}
 		manager := gitremote.New(repo, args[0], branch)
 		if err := manager.Init(cmd.Context()); err != nil {
-			return err
+			return fmt.Errorf("could not initialize remote synchronization: %w", err)
 		}
 		viper.Set("remote.enabled", true)
 		viper.Set("remote.url", args[0])
 		viper.Set("remote.branch", branch)
 		if err := persistConfig(); err != nil {
-			return fmt.Errorf("remote initialized, but config could not be saved: %w", err)
+			return fmt.Errorf("remote synchronization was initialized, but the configuration could not be saved: %w", err)
 		}
 		fmt.Printf("Remote synchronization initialized on branch %s.\n", branch)
 		return nil
@@ -49,12 +49,12 @@ var remoteStatusCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		repo, err := store.OpenRepository()
 		if err != nil {
-			return err
+			return fmt.Errorf("could not open DevLog data: %w", err)
 		}
 		manager := configuredRemote(repo)
 		status, err := manager.Status(cmd.Context())
 		if err != nil {
-			return err
+			return fmt.Errorf("could not read remote synchronization status: %w", err)
 		}
 		if !status.Initialized {
 			fmt.Println("Remote synchronization is not initialized.")
@@ -73,10 +73,10 @@ var remoteSyncCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		repo, err := store.OpenRepository()
 		if err != nil {
-			return err
+			return fmt.Errorf("could not open DevLog data: %w", err)
 		}
 		if err := configuredRemote(repo).Sync(cmd.Context()); err != nil {
-			return err
+			return fmt.Errorf("could not synchronize remote data: %w", err)
 		}
 		fmt.Println("Remote synchronization complete.")
 		return nil
@@ -89,15 +89,15 @@ var remoteRemoveCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		repo, err := store.OpenRepository()
 		if err != nil {
-			return err
+			return fmt.Errorf("could not open DevLog data: %w", err)
 		}
 		if err := configuredRemote(repo).Disconnect(cmd.Context()); err != nil {
-			return err
+			return fmt.Errorf("could not disconnect remote synchronization: %w", err)
 		}
 		viper.Set("remote.enabled", false)
 		viper.Set("remote.url", "")
 		if err := persistConfig(); err != nil {
-			return err
+			return fmt.Errorf("remote was disconnected, but the configuration could not be saved: %w", err)
 		}
 		fmt.Println("Remote synchronization disconnected. Local data was kept.")
 		return nil

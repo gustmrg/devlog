@@ -69,7 +69,7 @@ func NewRepository(root, configRoot string) *Repository {
 
 func (r *Repository) EnsureLayout() (MigrationResult, error) {
 	if err := os.MkdirAll(r.Root, 0755); err != nil {
-		return MigrationResult{}, err
+		return MigrationResult{}, fmt.Errorf("could not create data directory %s: %w", r.Root, err)
 	}
 	unlock, err := r.Lock()
 	if err != nil {
@@ -83,11 +83,11 @@ func (r *Repository) ensureLayoutUnlocked() (MigrationResult, error) {
 	versionPath := filepath.Join(r.Root, ".devlog-version")
 	if data, err := os.ReadFile(versionPath); err == nil {
 		if strings.TrimSpace(string(data)) != DataVersion {
-			return MigrationResult{}, fmt.Errorf("unsupported devlog data version %q", strings.TrimSpace(string(data)))
+			return MigrationResult{}, fmt.Errorf("DevLog data uses unsupported format version %q; update DevLog before continuing", strings.TrimSpace(string(data)))
 		}
 		return MigrationResult{AlreadyCurrent: true}, nil
 	} else if !os.IsNotExist(err) {
-		return MigrationResult{}, err
+		return MigrationResult{}, fmt.Errorf("could not read data version file %s: %w", versionPath, err)
 	}
 
 	result, err := r.migrateLegacyUnlocked()
@@ -95,13 +95,13 @@ func (r *Repository) ensureLayoutUnlocked() (MigrationResult, error) {
 		return MigrationResult{}, err
 	}
 	if err := os.MkdirAll(filepath.Join(r.Root, "entries"), 0755); err != nil {
-		return MigrationResult{}, err
+		return MigrationResult{}, fmt.Errorf("could not create entries directory: %w", err)
 	}
 	if err := os.MkdirAll(filepath.Join(r.Root, "summaries"), 0755); err != nil {
-		return MigrationResult{}, err
+		return MigrationResult{}, fmt.Errorf("could not create summaries directory: %w", err)
 	}
 	if err := atomicWrite(versionPath, []byte(DataVersion+"\n"), 0644); err != nil {
-		return MigrationResult{}, err
+		return MigrationResult{}, fmt.Errorf("could not write data version file: %w", err)
 	}
 	if err := r.ensureGitignore(); err != nil {
 		return MigrationResult{}, err
@@ -115,15 +115,15 @@ func (r *Repository) Migrate() (MigrationResult, error) {
 
 func (r *Repository) Lock() (func(), error) {
 	if err := os.MkdirAll(r.Root, 0755); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not create data directory %s: %w", r.Root, err)
 	}
 	file, err := os.OpenFile(filepath.Join(r.Root, ".devlog.lock"), os.O_CREATE|os.O_RDWR, 0600)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not open data lock: %w", err)
 	}
 	if err := lockFile(file); err != nil {
 		file.Close()
-		return nil, err
+		return nil, fmt.Errorf("could not lock DevLog data: %w", err)
 	}
 	return func() {
 		_ = unlockFile(file)
@@ -153,7 +153,7 @@ func (r *Repository) AddEntries(date time.Time, entries []Entry) ([]Entry, error
 
 	dir := filepath.Join(r.Root, "entries", date.Format("2006-01-02"))
 	if err := os.MkdirAll(dir, 0755); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not create entry directory for %s: %w", date.Format("2006-01-02"), err)
 	}
 	var added []Entry
 	for _, entry := range entries {
@@ -169,7 +169,7 @@ func (r *Repository) AddEntries(date time.Time, entries []Entry) ([]Entry, error
 			return added, err
 		}
 		if err := atomicWrite(filepath.Join(dir, entry.Id+".json"), append(data, '\n'), 0644); err != nil {
-			return added, err
+			return added, fmt.Errorf("could not write entry %s: %w", entry.Id, err)
 		}
 		ids[entry.Id] = true
 		if entry.Source != "" {
@@ -183,7 +183,7 @@ func (r *Repository) AddEntries(date time.Time, entries []Entry) ([]Entry, error
 func (r *Repository) Entries(date time.Time) ([]Entry, error) {
 	unlock, err := r.Lock()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not list entries for %s: %w", date.Format("2006-01-02"), err)
 	}
 	defer unlock()
 	return r.entriesUnlocked(date)
@@ -205,11 +205,11 @@ func (r *Repository) entriesUnlocked(date time.Time) ([]Entry, error) {
 		}
 		data, err := os.ReadFile(filepath.Join(dir, item.Name()))
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("could not read entry %s: %w", item.Name(), err)
 		}
 		var entry Entry
 		if err := json.Unmarshal(data, &entry); err != nil {
-			return nil, fmt.Errorf("error parsing entry %s: %w", item.Name(), err)
+			return nil, fmt.Errorf("could not parse entry %s: %w", item.Name(), err)
 		}
 		if entry.DeletedAt != nil {
 			continue
@@ -242,7 +242,7 @@ func (r *Repository) SaveSummary(summary Summary) error {
 		summary.DeviceID, _ = DeviceID(r.ConfigRoot)
 	}
 	if err := os.MkdirAll(filepath.Join(r.Root, "summaries"), 0755); err != nil {
-		return err
+		return fmt.Errorf("could not create summaries directory: %w", err)
 	}
 	return saveSummaryAtomic(r.SummaryPath(summary.Date), summary)
 }
@@ -258,7 +258,7 @@ func (r *Repository) SummaryFiles() ([]string, error) {
 		return nil, nil
 	}
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not list summary files: %w", err)
 	}
 	var paths []string
 	for _, item := range items {

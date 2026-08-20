@@ -14,10 +14,14 @@ cleanup() {
 
 trap cleanup EXIT
 
+fail() {
+    printf 'Error: %s\n' "$1" >&2
+    exit 1
+}
+
 for command_name in curl tar install; do
     if ! command -v "$command_name" >/dev/null 2>&1; then
-        printf '%s\n' "Error: $command_name is required to install DevLog." >&2
-        exit 1
+        fail "missing required command '$command_name'. Install it and try again."
     fi
 done
 
@@ -29,8 +33,7 @@ case "$(uname -s)" in
         operating_system=linux
         ;;
     *)
-        printf '%s\n' "Error: this installer supports macOS and Linux. Download the Windows ZIP from the releases page." >&2
-        exit 1
+        fail "unsupported operating system '$(uname -s)'. Use macOS or Linux, or download another build from https://github.com/$repository/releases."
         ;;
 esac
 
@@ -42,8 +45,7 @@ case "$(uname -m)" in
         architecture=amd64
         ;;
     *)
-        printf '%s\n' "Error: unsupported CPU architecture: $(uname -m)" >&2
-        exit 1
+        fail "unsupported CPU architecture '$(uname -m)'. Download a compatible build from https://github.com/$repository/releases."
         ;;
 esac
 
@@ -52,17 +54,17 @@ if command -v sha256sum >/dev/null 2>&1; then
 elif command -v shasum >/dev/null 2>&1; then
     sha256_command="shasum"
 else
-    printf '%s\n' "Error: sha256sum or shasum is required to verify the release." >&2
-    exit 1
+    fail "checksum verification requires 'sha256sum' or 'shasum'. Install one and try again."
 fi
 
 release_json="$temporary_dir/release.json"
-curl --fail --silent --show-error --location --retry 3 "$release_api" -o "$release_json"
+if ! curl --fail --silent --show-error --location --retry 3 "$release_api" -o "$release_json"; then
+    fail "could not fetch the latest release information. Check your connection and try again."
+fi
 
 release_tag=$(sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$release_json" | head -n 1)
 if [ -z "$release_tag" ]; then
-    printf '%s\n' "Error: could not determine the latest DevLog release." >&2
-    exit 1
+    fail "the GitHub response did not identify a latest DevLog release. Try again later."
 fi
 
 release_version=${release_tag#v}
@@ -72,15 +74,18 @@ checksums_path="$temporary_dir/checksums.txt"
 download_base="https://github.com/$repository/releases/download/$release_tag"
 
 printf 'Downloading DevLog %s for %s/%s\n' "$release_tag" "$operating_system" "$architecture"
-curl --fail --silent --show-error --location --retry 3 \
-    "$download_base/$archive_name" -o "$archive_path"
-curl --fail --silent --show-error --location --retry 3 \
-    "$download_base/checksums.txt" -o "$checksums_path"
+if ! curl --fail --silent --show-error --location --retry 3 \
+    "$download_base/$archive_name" -o "$archive_path"; then
+    fail "could not download $archive_name from release $release_tag."
+fi
+if ! curl --fail --silent --show-error --location --retry 3 \
+    "$download_base/checksums.txt" -o "$checksums_path"; then
+    fail "could not download checksums for release $release_tag."
+fi
 
 expected_checksum=$(awk -v archive_name="$archive_name" '$2 == archive_name { print $1; exit }' "$checksums_path")
 if [ -z "$expected_checksum" ]; then
-    printf '%s\n' "Error: no checksum was published for $archive_name." >&2
-    exit 1
+    fail "release $release_tag does not include a checksum for $archive_name; installation was stopped."
 fi
 
 if [ "$sha256_command" = "sha256sum" ]; then
@@ -90,27 +95,33 @@ else
 fi
 
 if [ "$actual_checksum" != "$expected_checksum" ]; then
-    printf '%s\n' "Error: checksum verification failed for $archive_name." >&2
-    exit 1
+    fail "checksum verification failed for $archive_name; the downloaded file was not installed."
 fi
 
 mkdir "$temporary_dir/extracted"
-tar -xzf "$archive_path" -C "$temporary_dir/extracted"
+if ! tar -xzf "$archive_path" -C "$temporary_dir/extracted"; then
+    fail "could not extract $archive_name; the downloaded archive may be invalid."
+fi
 downloaded_binary="$temporary_dir/extracted/devlog"
 
 if [ ! -f "$downloaded_binary" ]; then
-    printf '%s\n' "Error: the release archive does not contain the devlog binary." >&2
-    exit 1
+    fail "release archive $archive_name does not contain the devlog binary."
 fi
 
 if [ -w "$install_dir" ]; then
-    install -m 0755 "$downloaded_binary" "$binary_path"
+    if ! install -m 0755 "$downloaded_binary" "$binary_path"; then
+        fail "could not install DevLog at $binary_path. Check the directory permissions and try again."
+    fi
 elif command -v sudo >/dev/null 2>&1; then
-    sudo install -m 0755 "$downloaded_binary" "$binary_path"
+    if ! sudo install -m 0755 "$downloaded_binary" "$binary_path"; then
+        fail "could not install DevLog at $binary_path with sudo. Check your sudo access and try again."
+    fi
 else
-    printf '%s\n' "Error: cannot write to $install_dir; run this script with an account that has sudo access." >&2
-    exit 1
+    fail "cannot write to $install_dir and sudo is unavailable. Install the binary manually or use an account with access."
 fi
 
 printf 'Installed DevLog %s at %s\n' "$release_tag" "$binary_path"
-printf '%s\n' "Run 'devlog init' to initialize DevLog."
+
+if [ -z "${HOME:-}" ] || [ ! -f "$HOME/.devlog/config.json" ]; then
+    printf '%s\n' "Next step: run 'devlog init' to create the DevLog configuration."
+fi

@@ -56,7 +56,7 @@ var versionCmd = &cobra.Command{
 // best-effort: any failure is a soft, non-fatal notice to stderr.
 func runVersionCheck() {
 	if versionInfo == "dev" {
-		fmt.Fprintln(os.Stderr, "update check skipped for dev build")
+		fmt.Fprintln(os.Stderr, "Update check skipped: development builds do not have a release version.")
 		return
 	}
 
@@ -65,7 +65,7 @@ func runVersionCheck() {
 
 	latest, found, err := detectLatest(ctx)
 	if err != nil || !found {
-		fmt.Fprintln(os.Stderr, "could not check for updates")
+		fmt.Fprintln(os.Stderr, "Could not check for updates; try again later.")
 		return
 	}
 

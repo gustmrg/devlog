@@ -2,6 +2,7 @@ package store
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -61,11 +62,11 @@ func LoadDailyLog(filePath string) (DailyLog, error) {
 		return DailyLog{}, nil
 	}
 	if err != nil {
-		return DailyLog{}, fmt.Errorf("error reading log file: %w", err)
+		return DailyLog{}, fmt.Errorf("could not read legacy log %s: %w", filePath, err)
 	}
 	var log DailyLog
 	if err := json.Unmarshal(data, &log); err != nil {
-		return DailyLog{}, fmt.Errorf("error parsing log file: %w", err)
+		return DailyLog{}, fmt.Errorf("could not parse legacy log %s: %w", filePath, err)
 	}
 	return log, nil
 }
@@ -73,10 +74,10 @@ func LoadDailyLog(filePath string) (DailyLog, error) {
 func SaveDailyLog(filePath string, log DailyLog) error {
 	data, err := json.MarshalIndent(log, "", "  ")
 	if err != nil {
-		return fmt.Errorf("error encoding log: %w", err)
+		return fmt.Errorf("could not encode legacy log: %w", err)
 	}
 	if err := os.WriteFile(filePath, data, 0644); err != nil {
-		return fmt.Errorf("error writing log file: %w", err)
+		return fmt.Errorf("could not write legacy log %s: %w", filePath, err)
 	}
 	return nil
 }
@@ -87,7 +88,7 @@ func LoadSummary(filePath string) (Summary, error) {
 		return Summary{}, nil
 	}
 	if err != nil {
-		return Summary{}, fmt.Errorf("error reading summary file: %w", err)
+		return Summary{}, fmt.Errorf("could not read summary %s: %w", filePath, err)
 	}
 
 	return ParseSummary(data)
@@ -101,12 +102,12 @@ func ParseSummary(data []byte) (Summary, error) {
 
 	var meta SummaryMeta
 	if err := yaml.Unmarshal([]byte(parts[1]), &meta); err != nil {
-		return Summary{}, fmt.Errorf("error parsing summary frontmatter: %w", err)
+		return Summary{}, fmt.Errorf("could not parse summary frontmatter: %w", err)
 	}
 
 	date, err := time.Parse("2006-01-02", meta.Date)
 	if err != nil {
-		return Summary{}, fmt.Errorf("invalid date in summary: %w", err)
+		return Summary{}, fmt.Errorf("summary has an invalid date %q: expected YYYY-MM-DD", meta.Date)
 	}
 
 	var projects []ProjectGroup
@@ -135,7 +136,7 @@ func SaveSummary(filePath string, summary Summary) error {
 func saveSummaryAtomic(filePath string, summary Summary) error {
 	content := EncodeSummary(summary)
 	if err := atomicWrite(filePath, content, 0644); err != nil {
-		return fmt.Errorf("error writing summary file: %w", err)
+		return fmt.Errorf("could not write summary %s: %w", filePath, err)
 	}
 	return nil
 }
@@ -165,14 +166,23 @@ func marshalEntry(entry Entry) ([]byte, error) {
 	return append(data, '\n'), nil
 }
 
-func Init() error {
+// InitResult describes whether initialization created a new configuration.
+type InitResult struct {
+	ConfigFile string
+	Created    bool
+}
+
+// Initialize creates DevLog's default configuration without overwriting an
+// existing one.
+func Initialize() (InitResult, error) {
 	path, err := ConfigPath()
 	if err != nil {
-		return err
+		return InitResult{}, err
 	}
+	result := InitResult{ConfigFile: filepath.Join(path, "config.json")}
 
 	if err := os.MkdirAll(path, 0755); err != nil {
-		return fmt.Errorf("fatal error creating application directory: %w", err)
+		return InitResult{}, fmt.Errorf("could not create application directory %s: %w", path, err)
 	}
 
 	viper.AddConfigPath(path)
@@ -194,16 +204,28 @@ func Init() error {
 	viper.Set("remote.branch", "main")
 
 	if err := viper.SafeWriteConfig(); err != nil {
-		return fmt.Errorf("fatal error writing config file: %w", err)
+		var alreadyExists viper.ConfigFileAlreadyExistsError
+		if errors.As(err, &alreadyExists) {
+			return result, nil
+		}
+		return InitResult{}, fmt.Errorf("could not write config file %s: %w", result.ConfigFile, err)
 	}
 
-	return nil
+	result.Created = true
+	return result, nil
+}
+
+// Init preserves the original error-only API for callers that do not need to
+// distinguish a new configuration from an existing one.
+func Init() error {
+	_, err := Initialize()
+	return err
 }
 
 func ConfigPath() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return "", fmt.Errorf("fatal error could not find home directory: %w", err)
+		return "", fmt.Errorf("could not find the home directory: %w", err)
 	}
 
 	return filepath.Join(home, ".devlog"), nil

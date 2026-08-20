@@ -14,7 +14,7 @@ var migrateCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		_, result, err := store.MigrateRepository()
 		if err != nil {
-			return err
+			return fmt.Errorf("could not migrate DevLog data: %w", err)
 		}
 		if result.AlreadyCurrent {
 			fmt.Println("DevLog data is already using the current format.")

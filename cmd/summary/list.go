@@ -11,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 )
 
@@ -44,9 +43,9 @@ Examples:
 		case week && month:
 			return fmt.Errorf("--week and --month cannot be used together")
 		case week && hasRange:
-			return fmt.Errorf("--week cannot be used together with --from/--to")
+			return fmt.Errorf("--week cannot be used with --from or --to")
 		case month && hasRange:
-			return fmt.Errorf("--month cannot be used together with --from/--to")
+			return fmt.Errorf("--month cannot be used with --from or --to")
 		}
 
 		start, end, label, err := resolveRange(week, month, from, to)
@@ -56,11 +55,11 @@ Examples:
 
 		repo, err := store.OpenRepository()
 		if err != nil {
-			return fmt.Errorf("%s %s", color.RedString("✗"), err)
+			return fmt.Errorf("could not open DevLog data: %w", err)
 		}
 		summaryFiles, err := repo.SummaryFiles()
 		if err != nil {
-			return fmt.Errorf("%s %s", color.RedString("✗"), err)
+			return fmt.Errorf("could not list saved summaries: %w", err)
 		}
 
 		var summaries []store.Summary
@@ -77,7 +76,7 @@ Examples:
 
 			summary, err := store.LoadSummary(summaryFile)
 			if err != nil {
-				return fmt.Errorf("%s %s", color.RedString("✗"), err)
+				return fmt.Errorf("could not load summary %s: %w", name, err)
 			}
 			summaries = append(summaries, summary)
 		}
@@ -143,14 +142,14 @@ func resolveRange(week, month bool, from, to string) (time.Time, time.Time, stri
 		if from != "" {
 			parsed, err := time.Parse("2006-01-02", from)
 			if err != nil {
-				return time.Time{}, time.Time{}, "", fmt.Errorf("invalid --from date, expected YYYY-MM-DD")
+				return time.Time{}, time.Time{}, "", fmt.Errorf("invalid --from value %q: expected YYYY-MM-DD", from)
 			}
 			start = truncateDay(parsed)
 		}
 		if to != "" {
 			parsed, err := time.Parse("2006-01-02", to)
 			if err != nil {
-				return time.Time{}, time.Time{}, "", fmt.Errorf("invalid --to date, expected YYYY-MM-DD")
+				return time.Time{}, time.Time{}, "", fmt.Errorf("invalid --to value %q: expected YYYY-MM-DD", to)
 			}
 			end = truncateDay(parsed)
 		}

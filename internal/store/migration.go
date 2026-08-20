@@ -14,11 +14,11 @@ func (r *Repository) migrateLegacyUnlocked() (MigrationResult, error) {
 	legacySummaries := filepath.Join(r.ConfigRoot, "summaries")
 	entryFiles, err := os.ReadDir(legacyEntries)
 	if err != nil && !os.IsNotExist(err) {
-		return result, err
+		return result, fmt.Errorf("could not inspect legacy entries: %w", err)
 	}
 	summaryFiles, err := os.ReadDir(legacySummaries)
 	if err != nil && !os.IsNotExist(err) {
-		return result, err
+		return result, fmt.Errorf("could not inspect legacy summaries: %w", err)
 	}
 	if len(entryFiles) == 0 && len(summaryFiles) == 0 {
 		return result, nil
@@ -26,7 +26,7 @@ func (r *Repository) migrateLegacyUnlocked() (MigrationResult, error) {
 
 	backup := filepath.Join(r.ConfigRoot, "backups", "migration-"+time.Now().UTC().Format("20060102T150405.000000000Z"))
 	if err := os.MkdirAll(backup, 0700); err != nil {
-		return result, err
+		return result, fmt.Errorf("could not create migration backup %s: %w", backup, err)
 	}
 	result.BackupPath = backup
 
@@ -48,7 +48,7 @@ func (r *Repository) migrateLegacyUnlocked() (MigrationResult, error) {
 		dateText := strings.TrimSuffix(item.Name(), filepath.Ext(item.Name()))
 		date, err := time.Parse("2006-01-02", dateText)
 		if err != nil {
-			return result, fmt.Errorf("invalid legacy entry filename %s", item.Name())
+			return result, fmt.Errorf("legacy entry filename %q is not a valid YYYY-MM-DD date", item.Name())
 		}
 		dir := filepath.Join(r.Root, "entries", date.Format("2006-01-02"))
 		if err := os.MkdirAll(dir, 0755); err != nil {

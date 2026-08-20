@@ -35,7 +35,7 @@ Examples:
 		ai, _ := cmd.Flags().GetBool("ai")
 
 		if style != "" && !ai {
-			return fmt.Errorf("--style can only be used together with --ai")
+			return fmt.Errorf("--style can only be used with --ai")
 		}
 
 		summaryDate, err := getParsedDate(date)
@@ -45,11 +45,11 @@ Examples:
 
 		repo, err := store.OpenRepository()
 		if err != nil {
-			return fmt.Errorf("%s %s", color.RedString("✗"), err)
+			return fmt.Errorf("could not open DevLog data: %w", err)
 		}
 		entries, err := repo.Entries(summaryDate)
 		if err != nil {
-			return fmt.Errorf("%s %s", color.RedString("✗"), err)
+			return fmt.Errorf("could not read entries for %s: %w", summaryDate.Format("2006-01-02"), err)
 		}
 
 		if len(entries) == 0 {
@@ -72,7 +72,7 @@ Examples:
 		if ai {
 			aiContent, err := generateWithLLM(cmd.Context(), grouped, style)
 			if err != nil {
-				return fmt.Errorf("%s %s", color.RedString("✗"), err)
+				return fmt.Errorf("could not generate AI summary: %w", err)
 			}
 			content = aiContent
 			aiGenerated = true
@@ -88,7 +88,7 @@ Examples:
 		}
 
 		if err := repo.SaveSummary(summary); err != nil {
-			return fmt.Errorf("%s %s", color.RedString("✗"), err)
+			return fmt.Errorf("could not save summary for %s: %w", summaryDate.Format("2006-01-02"), err)
 		}
 
 		fmt.Printf("  %s Summary saved for %s\n", color.GreenString("✔"), summaryDate.Format("2006-01-02"))

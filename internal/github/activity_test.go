@@ -171,7 +171,7 @@ func TestFetchActivityReportsGraphQLErrors(t *testing.T) {
 		want string
 	}{
 		{name: "API error", body: `{"errors":[{"message":"review access denied"}]}`, want: "review access denied"},
-		{name: "malformed response", body: `{`, want: "parsing review search response"},
+		{name: "malformed response", body: `{`, want: "invalid review response"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

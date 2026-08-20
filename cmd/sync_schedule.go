@@ -35,7 +35,7 @@ its owner (for example, chmod 600 ~/.devlog/sync.env).`,
 		}
 		executable, err := os.Executable()
 		if err != nil {
-			return fmt.Errorf("could not locate devlog executable: %w", err)
+			return fmt.Errorf("could not locate the DevLog executable: %w", err)
 		}
 		executable, err = filepath.Abs(executable)
 		if err != nil {
@@ -44,7 +44,7 @@ its owner (for example, chmod 600 ~/.devlog/sync.env).`,
 		if envFile != "" {
 			envFile, err = absolutePath(envFile)
 			if err != nil {
-				return err
+				return fmt.Errorf("could not resolve environment file: %w", err)
 			}
 			if err := validateEnvFile(envFile); err != nil {
 				return err
@@ -65,7 +65,7 @@ its owner (for example, chmod 600 ~/.devlog/sync.env).`,
 			LogFile:    logFile,
 		})
 		if err != nil {
-			return err
+			return fmt.Errorf("could not install automatic sync: %w", err)
 		}
 
 		fmt.Printf("Automatic sync installed for %02d:%02d daily (%s).\n", hour, minute, installedAt)
@@ -83,7 +83,7 @@ var syncScheduleShowCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		definition, installed, err := scheduler.Show()
 		if err != nil {
-			return err
+			return fmt.Errorf("could not show automatic sync: %w", err)
 		}
 		if !installed {
 			fmt.Println("No automatic sync is installed.")
@@ -100,7 +100,7 @@ var syncScheduleRemoveCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		removed, err := scheduler.Remove()
 		if err != nil {
-			return err
+			return fmt.Errorf("could not remove automatic sync: %w", err)
 		}
 		if !removed {
 			fmt.Println("No automatic sync is installed.")
@@ -128,7 +128,7 @@ func validateEnvFile(path string) error {
 		return fmt.Errorf("could not access environment file: %w", err)
 	}
 	if !info.Mode().IsRegular() {
-		return fmt.Errorf("environment file must be a regular file")
+		return fmt.Errorf("environment file %s is not a regular file", path)
 	}
 	if info.Mode().Perm()&0077 != 0 {
 		return fmt.Errorf("environment file permissions are too open; run chmod 600 %s", path)
@@ -156,7 +156,7 @@ func loadEnvFile(path string) error {
 		key, value, ok := strings.Cut(line, "=")
 		key = strings.TrimSpace(key)
 		if !ok || key == "" {
-			return fmt.Errorf("invalid environment line: expected KEY=VALUE")
+			return fmt.Errorf("invalid environment line %q: expected KEY=VALUE", line)
 		}
 		value = strings.TrimSpace(value)
 		if len(value) >= 2 && ((value[0] == '\'' && value[len(value)-1] == '\'') || (value[0] == '"' && value[len(value)-1] == '"')) {

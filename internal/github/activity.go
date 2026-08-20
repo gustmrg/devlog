@@ -43,7 +43,7 @@ type PRActivity struct {
 // included as long as the client's token has access to them.
 func FetchActivity(ctx context.Context, client *Client, username string, date time.Time) (Activity, error) {
 	if username == "" {
-		return Activity{}, fmt.Errorf("github.username is not set in the devlog config")
+		return Activity{}, fmt.Errorf("no GitHub username is configured; run devlog config set github.username <username>")
 	}
 
 	d := date.Format("2006-01-02")
@@ -79,10 +79,10 @@ func fetchCommits(ctx context.Context, client *Client, username, date string) ([
 	for {
 		result, response, err := client.REST.Search.Commits(ctx, query, opts)
 		if err != nil {
-			return nil, fmt.Errorf("error searching commits: %w", err)
+			return nil, fmt.Errorf("could not search GitHub commits: %w", err)
 		}
 		if result.GetIncompleteResults() {
-			return nil, fmt.Errorf("error searching commits: GitHub returned incomplete results")
+			return nil, fmt.Errorf("GitHub returned incomplete commit search results; try again later")
 		}
 		if expected == 0 {
 			expected = result.GetTotal()
@@ -101,7 +101,7 @@ func fetchCommits(ctx context.Context, client *Client, username, date string) ([
 		opts.Page = response.NextPage
 	}
 	if len(commits) < expected {
-		return nil, fmt.Errorf("error searching commits: GitHub returned %d of %d results", len(commits), expected)
+		return nil, fmt.Errorf("GitHub returned only %d of %d commit search results; try again later", len(commits), expected)
 	}
 	return commits, nil
 }
@@ -124,10 +124,10 @@ func fetchAuthoredPRs(ctx context.Context, client *Client, username, date string
 		for {
 			result, response, err := client.REST.Search.Issues(ctx, query.q, opts)
 			if err != nil {
-				return nil, fmt.Errorf("error searching pull requests: %w", err)
+				return nil, fmt.Errorf("could not search GitHub pull requests: %w", err)
 			}
 			if result.GetIncompleteResults() {
-				return nil, fmt.Errorf("error searching pull requests: GitHub returned incomplete results")
+				return nil, fmt.Errorf("GitHub returned incomplete pull request search results; try again later")
 			}
 			if expected == 0 {
 				expected = result.GetTotal()
@@ -148,7 +148,7 @@ func fetchAuthoredPRs(ctx context.Context, client *Client, username, date string
 			opts.Page = response.NextPage
 		}
 		if collected < expected {
-			return nil, fmt.Errorf("error searching pull requests: GitHub returned %d of %d results", collected, expected)
+			return nil, fmt.Errorf("GitHub returned only %d of %d pull request search results; try again later", collected, expected)
 		}
 	}
 	return prs, nil
@@ -157,7 +157,7 @@ func fetchAuthoredPRs(ctx context.Context, client *Client, username, date string
 func fetchReviews(ctx context.Context, client *Client, username, date string) ([]PRActivity, error) {
 	parsedDate, err := time.Parse("2006-01-02", date)
 	if err != nil {
-		return nil, fmt.Errorf("error preparing review search: %w", err)
+		return nil, fmt.Errorf("could not prepare the GitHub review search: %w", err)
 	}
 	from := parsedDate.UTC()
 	to := from.AddDate(0, 0, 1)
@@ -218,34 +218,34 @@ func fetchReviews(ctx context.Context, client *Client, username, date string) ([
 			},
 		})
 		if err != nil {
-			return nil, fmt.Errorf("error encoding review query: %w", err)
+			return nil, fmt.Errorf("could not encode the GitHub review query: %w", err)
 		}
 		req, err := http.NewRequestWithContext(ctx, http.MethodPost, client.GraphQLURL, bytes.NewReader(payload))
 		if err != nil {
-			return nil, fmt.Errorf("error building review query: %w", err)
+			return nil, fmt.Errorf("could not build the GitHub review request: %w", err)
 		}
 		req.Header.Set("Content-Type", "application/json")
 		response, err := client.HTTP.Do(req)
 		if err != nil {
-			return nil, fmt.Errorf("error searching reviewed pull requests: %w", err)
+			return nil, fmt.Errorf("could not search reviewed GitHub pull requests: %w", err)
 		}
 		body, readErr := io.ReadAll(io.LimitReader(response.Body, 1<<20))
 		response.Body.Close()
 		if readErr != nil {
-			return nil, fmt.Errorf("error reading review search response: %w", readErr)
+			return nil, fmt.Errorf("could not read the GitHub review response: %w", readErr)
 		}
 		if response.StatusCode != http.StatusOK {
-			return nil, fmt.Errorf("error searching reviewed pull requests: GitHub GraphQL returned status %d", response.StatusCode)
+			return nil, fmt.Errorf("GitHub review search failed with HTTP status %d", response.StatusCode)
 		}
 		var result graphQLResponse
 		if err := json.Unmarshal(body, &result); err != nil {
-			return nil, fmt.Errorf("error parsing review search response: %w", err)
+			return nil, fmt.Errorf("GitHub returned an invalid review response: %w", err)
 		}
 		if len(result.Errors) > 0 {
-			return nil, fmt.Errorf("error searching reviewed pull requests: %s", result.Errors[0].Message)
+			return nil, fmt.Errorf("GitHub review search failed: %s", result.Errors[0].Message)
 		}
 		if result.Data.User == nil {
-			return nil, fmt.Errorf("error searching reviewed pull requests: GitHub user %q was not found", username)
+			return nil, fmt.Errorf("GitHub user %q was not found; check github.username", username)
 		}
 		connection := result.Data.User.ContributionsCollection.PullRequestReviewContributions
 		for _, item := range connection.Nodes {
@@ -265,7 +265,7 @@ func fetchReviews(ctx context.Context, client *Client, username, date string) ([
 			break
 		}
 		if connection.PageInfo.EndCursor == "" {
-			return nil, fmt.Errorf("error searching reviewed pull requests: GitHub omitted the next review cursor")
+			return nil, fmt.Errorf("GitHub returned an incomplete review page; try again later")
 		}
 		after = connection.PageInfo.EndCursor
 	}

@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -16,8 +17,9 @@ var (
 	cfgFile string
 
 	RootCmd = &cobra.Command{
-		Use:   "devlog",
-		Short: "Track daily dev activities and generate timesheet summaries",
+		Use:          "devlog",
+		Short:        "Track daily dev activities and generate timesheet summaries",
+		SilenceUsage: true,
 		Long: `DevLog is a developer memory system for the command line.
 	
 	Log activities throughout the day as you work, then generate a structured
@@ -67,6 +69,9 @@ func initConfig() {
 	viper.AutomaticEnv()
 
 	if err := viper.ReadInConfig(); err != nil {
-		fmt.Println("Error reading config file:", err)
+		var notFound viper.ConfigFileNotFoundError
+		if !errors.As(err, &notFound) {
+			fmt.Fprintf(os.Stderr, "Warning: could not load config file; using defaults: %v\n", err)
+		}
 	}
 }

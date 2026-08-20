@@ -35,11 +35,11 @@ func ParseTime(value string) (int, int, error) {
 	}
 	hour, err := strconv.Atoi(parts[0])
 	if err != nil || hour < 0 || hour > 23 {
-		return 0, 0, fmt.Errorf("invalid hour in %q", value)
+		return 0, 0, fmt.Errorf("invalid time %q: hour must be between 00 and 23", value)
 	}
 	minute, err := strconv.Atoi(parts[1])
 	if err != nil || minute < 0 || minute > 59 {
-		return 0, 0, fmt.Errorf("invalid minute in %q", value)
+		return 0, 0, fmt.Errorf("invalid time %q: minute must be between 00 and 59", value)
 	}
 	return hour, minute, nil
 }
@@ -54,7 +54,7 @@ func Install(opts Options) (string, error) {
 	case "linux":
 		return installCron(opts)
 	default:
-		return "", fmt.Errorf("automatic sync is not supported on %s", runtime.GOOS)
+		return "", fmt.Errorf("automatic sync is not supported on %s; supported platforms are macOS and Linux", runtime.GOOS)
 	}
 }
 
@@ -78,7 +78,7 @@ func Show() (string, bool, error) {
 		block := managedCronBlock(current)
 		return block, block != "", nil
 	default:
-		return "", false, fmt.Errorf("automatic sync is not supported on %s", runtime.GOOS)
+		return "", false, fmt.Errorf("automatic sync is not supported on %s; supported platforms are macOS and Linux", runtime.GOOS)
 	}
 }
 
@@ -104,16 +104,16 @@ func Remove() (bool, error) {
 		}
 		return true, writeCrontab(removeManagedCronBlock(current))
 	default:
-		return false, fmt.Errorf("automatic sync is not supported on %s", runtime.GOOS)
+		return false, fmt.Errorf("automatic sync is not supported on %s; supported platforms are macOS and Linux", runtime.GOOS)
 	}
 }
 
 func validate(opts Options) error {
 	if opts.Executable == "" || !filepath.IsAbs(opts.Executable) {
-		return fmt.Errorf("devlog executable path must be absolute")
+		return fmt.Errorf("DevLog executable path must be absolute")
 	}
 	if opts.Hour < 0 || opts.Hour > 23 || opts.Minute < 0 || opts.Minute > 59 {
-		return fmt.Errorf("invalid schedule time")
+		return fmt.Errorf("schedule time must be between 00:00 and 23:59")
 	}
 	if opts.LogFile == "" || !filepath.IsAbs(opts.LogFile) {
 		return fmt.Errorf("log file path must be absolute")
@@ -185,7 +185,7 @@ func installLaunchd(opts Options) (string, error) {
 		return "", err
 	}
 	if output, err := exec.Command("launchctl", "load", path).CombinedOutput(); err != nil {
-		return "", fmt.Errorf("launchctl load failed: %s", strings.TrimSpace(string(output)))
+		return "", fmt.Errorf("could not load launchd job: %s", commandOutput(output, err))
 	}
 	return path, nil
 }
@@ -222,16 +222,23 @@ func readCrontab() (string, error) {
 	if strings.Contains(strings.ToLower(string(output)), "no crontab") {
 		return "", nil
 	}
-	return "", fmt.Errorf("could not read crontab: %s", strings.TrimSpace(string(output)))
+	return "", fmt.Errorf("could not read crontab: %s", commandOutput(output, err))
 }
 
 func writeCrontab(content string) error {
 	cmd := exec.Command("crontab", "-")
 	cmd.Stdin = strings.NewReader(content)
 	if output, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("could not update crontab: %s", strings.TrimSpace(string(output)))
+		return fmt.Errorf("could not update crontab: %s", commandOutput(output, err))
 	}
 	return nil
+}
+
+func commandOutput(output []byte, err error) string {
+	if message := strings.TrimSpace(string(output)); message != "" {
+		return message
+	}
+	return err.Error()
 }
 
 func managedCronBlock(content string) string {

@@ -42,10 +42,10 @@ func New(repository *store.Repository, url, branch string) *Manager {
 
 func (m *Manager) Init(ctx context.Context) error {
 	if m.URL == "" {
-		return fmt.Errorf("remote repository URL is required")
+		return fmt.Errorf("remote repository URL is required; run devlog remote init <url>")
 	}
 	if _, err := exec.LookPath("git"); err != nil {
-		return fmt.Errorf("git executable was not found")
+		return fmt.Errorf("Git is required for remote synchronization but was not found in PATH")
 	}
 	unlock, err := m.Repository.Lock()
 	if err != nil {
@@ -148,7 +148,7 @@ func (m *Manager) resolveConflict(ctx context.Context, path string) error {
 	ours, oursErr := m.stageFile(ctx, 2, path)
 	theirs, theirsErr := m.stageFile(ctx, 3, path)
 	if oursErr != nil && theirsErr != nil {
-		return fmt.Errorf("could not read either side of conflict %s", path)
+		return fmt.Errorf("could not read either side of Git conflict %q", path)
 	}
 
 	var winner []byte
@@ -169,7 +169,7 @@ func (m *Manager) resolveConflict(ctx context.Context, path string) error {
 			winner = theirs
 		}
 	default:
-		return fmt.Errorf("unresolved Git conflict in unexpected file %s", path)
+		return fmt.Errorf("cannot automatically resolve Git conflict in unexpected file %q", path)
 	}
 	if len(winner) == 0 {
 		if err := os.Remove(filepath.Join(m.Repository.Root, path)); err != nil && !os.IsNotExist(err) {
@@ -396,7 +396,22 @@ func commandError(cmd *exec.Cmd, output []byte, err error) error {
 	if message == "" {
 		message = err.Error()
 	}
-	return fmt.Errorf("git %s failed: %s", strings.Join(cmd.Args[1:], " "), message)
+	rawArgs := cmd.Args[1:]
+	safeArgs := safeGitArgs(rawArgs)
+	for i := range rawArgs {
+		if safeArgs[i] != rawArgs[i] {
+			message = strings.ReplaceAll(message, rawArgs[i], safeArgs[i])
+		}
+	}
+	return fmt.Errorf("git %s failed: %s", strings.Join(safeArgs, " "), message)
+}
+
+func safeGitArgs(args []string) []string {
+	safe := append([]string(nil), args...)
+	if len(safe) >= 4 && safe[0] == "remote" && (safe[1] == "add" || safe[1] == "set-url") {
+		safe[3] = "<url>"
+	}
+	return safe
 }
 
 func atomicWrite(path string, data []byte) error {

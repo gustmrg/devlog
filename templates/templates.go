@@ -15,7 +15,7 @@ var files embed.FS
 func Get(style string) (string, error) {
 	data, err := files.ReadFile(style + ".md")
 	if err != nil {
-		return "", fmt.Errorf("unknown style %q (available: concise, detailed, formal, impersonal)", style)
+		return "", fmt.Errorf("unknown summary style %q; choose concise, detailed, formal, or impersonal", style)
 	}
 	return string(data), nil
 }

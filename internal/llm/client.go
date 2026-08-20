@@ -34,7 +34,7 @@ type Client struct {
 // NewFromConfig builds a client from the llm.* keys in the devlog config.
 func NewFromConfig() (*Client, error) {
 	if !viper.GetBool("llm.enabled") {
-		return nil, fmt.Errorf("LLM support is disabled — set llm.enabled to true in ~/.devlog/config.json")
+		return nil, fmt.Errorf("LLM features are disabled; run devlog config set llm.enabled true")
 	}
 
 	baseURL := viper.GetString("llm.baseURL")
@@ -42,14 +42,14 @@ func NewFromConfig() (*Client, error) {
 		provider := viper.GetString("llm.provider")
 		known, ok := providerBaseURLs[provider]
 		if !ok {
-			return nil, fmt.Errorf("unknown llm.provider %q — set llm.baseURL for a custom OpenAI-compatible endpoint", provider)
+			return nil, fmt.Errorf("unsupported LLM provider %q; configure llm.baseURL for a custom OpenAI-compatible endpoint", provider)
 		}
 		baseURL = known
 	}
 
 	model := viper.GetString("llm.model")
 	if model == "" {
-		return nil, fmt.Errorf("llm.model is not set in the devlog config")
+		return nil, fmt.Errorf("no LLM model is configured; run devlog config set llm.model <model>")
 	}
 
 	apiKeyEnvVar := viper.GetString("llm.apiKeyEnvVar")
@@ -58,7 +58,7 @@ func NewFromConfig() (*Client, error) {
 	}
 	apiKey := os.Getenv(apiKeyEnvVar)
 	if apiKey == "" {
-		return nil, fmt.Errorf("no API key found — set the %s environment variable", apiKeyEnvVar)
+		return nil, fmt.Errorf("no LLM API key found; set the %s environment variable", apiKeyEnvVar)
 	}
 
 	return &Client{
@@ -100,37 +100,37 @@ func (c *Client) Complete(ctx context.Context, systemPrompt, userPrompt string) 
 		Temperature: 0.3,
 	})
 	if err != nil {
-		return "", fmt.Errorf("error encoding request: %w", err)
+		return "", fmt.Errorf("could not encode the LLM request: %w", err)
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/chat/completions", bytes.NewReader(body))
 	if err != nil {
-		return "", fmt.Errorf("error building request: %w", err)
+		return "", fmt.Errorf("could not build the LLM request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+c.apiKey)
 
 	resp, err := c.http.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("error calling LLM API: %w", err)
+		return "", fmt.Errorf("could not reach the LLM API: %w", err)
 	}
 	defer resp.Body.Close()
 
 	respBody, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if err != nil {
-		return "", fmt.Errorf("error reading LLM response: %w", err)
+		return "", fmt.Errorf("could not read the LLM response: %w", err)
 	}
 
 	var parsed chatResponse
 	if err := json.Unmarshal(respBody, &parsed); err != nil {
-		return "", fmt.Errorf("error parsing LLM response (status %d): %w", resp.StatusCode, err)
+		return "", fmt.Errorf("LLM API returned an invalid response (HTTP %d): %w", resp.StatusCode, err)
 	}
 
 	if parsed.Error != nil {
-		return "", fmt.Errorf("LLM API error: %s", parsed.Error.Message)
+		return "", fmt.Errorf("LLM API request failed: %s", parsed.Error.Message)
 	}
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("LLM API returned status %d", resp.StatusCode)
+		return "", fmt.Errorf("LLM API request failed with HTTP status %d", resp.StatusCode)
 	}
 	if len(parsed.Choices) == 0 || parsed.Choices[0].Message.Content == "" {
 		return "", fmt.Errorf("LLM API returned an empty response")

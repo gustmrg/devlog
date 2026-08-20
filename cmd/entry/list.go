@@ -39,7 +39,7 @@ Examples:
 		RunE: func(cmd *cobra.Command, args []string) error {
 			repo, err := store.OpenRepository()
 			if err != nil {
-				return err
+				return fmt.Errorf("could not open DevLog data: %w", err)
 			}
 
 			today := time.Now().Format("2006-01-02")
@@ -48,7 +48,7 @@ Examples:
 			if date != "" {
 				parsedDate, err := time.Parse("2006-01-02", date)
 				if err != nil {
-					return fmt.Errorf("invalid date format, expected YYYY-MM-DD")
+					return fmt.Errorf("invalid --date value %q: expected YYYY-MM-DD", date)
 				}
 				logDate = parsedDate.Format("2006-01-02")
 			}
@@ -56,7 +56,7 @@ Examples:
 			parsedLogDate, _ := time.Parse("2006-01-02", logDate)
 			entries, err := repo.Entries(parsedLogDate)
 			if err != nil {
-				return err
+				return fmt.Errorf("could not read entries for %s: %w", logDate, err)
 			}
 
 			if len(entries) == 0 {

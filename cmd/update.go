@@ -69,15 +69,15 @@ Options:
 
 		updater, err := newUpdater()
 		if err != nil {
-			return fmt.Errorf("%s %w", color.RedString("✗"), err)
+			return fmt.Errorf("could not initialize the updater: %w", err)
 		}
 
 		latest, found, err := updater.DetectLatest(ctx, selfupdate.ParseSlug(repoSlug))
 		if err != nil {
-			return fmt.Errorf("%s failed to check for updates: %w", color.RedString("✗"), err)
+			return fmt.Errorf("could not check for updates: %w", err)
 		}
 		if !found {
-			return fmt.Errorf("%s no release found for %s", color.RedString("✗"), repoSlug)
+			return fmt.Errorf("no compatible release was found for %s", repoSlug)
 		}
 
 		if latest.LessOrEqual(versionInfo) {
@@ -93,14 +93,14 @@ Options:
 
 		exe, err := os.Executable()
 		if err != nil {
-			return fmt.Errorf("%s could not locate current binary: %w", color.RedString("✗"), err)
+			return fmt.Errorf("could not locate the current DevLog executable: %w", err)
 		}
 
 		if err := updater.UpdateTo(ctx, latest, exe); err != nil {
 			if errors.Is(err, fs.ErrPermission) {
-				return fmt.Errorf("%s update failed: no write permission for %s\n  try re-running with elevated permissions (e.g. sudo) or via your original install method", color.RedString("✗"), exe)
+				return fmt.Errorf("could not replace %s: permission denied; reinstall DevLog or rerun the update with sufficient permissions", exe)
 			}
-			return fmt.Errorf("%s update failed: %w", color.RedString("✗"), err)
+			return fmt.Errorf("could not update DevLog: %w", err)
 		}
 
 		fmt.Printf("%s updated to %s\n", color.GreenString("✔"), latest.Version())

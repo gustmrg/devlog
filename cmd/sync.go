@@ -196,16 +196,24 @@ func mapActivity(activity ghsync.Activity) []store.Entry {
 
 	for _, pr := range activity.PRs {
 		action := strings.ToUpper(pr.Action[:1]) + pr.Action[1:]
-		description := fmt.Sprintf("%s PR #%d: %s", action, pr.Number, pr.Title)
+		description := prDescription(fmt.Sprintf("%s PR #%d: %s", action, pr.Number, pr.Title), pr.Body)
 		entries = append(entries, newEntry(shortRepoName(pr.Repo), description, fmt.Sprintf("github:pr:%s#%d:%s", pr.Repo, pr.Number, pr.Action), "github", "pr"))
 	}
 
 	for _, pr := range activity.Reviews {
-		description := fmt.Sprintf("Reviewed PR #%d: %s", pr.Number, pr.Title)
+		description := prDescription(fmt.Sprintf("Reviewed PR #%d: %s", pr.Number, pr.Title), pr.Body)
 		entries = append(entries, newEntry(shortRepoName(pr.Repo), description, fmt.Sprintf("github:review:%s#%d:%s", pr.Repo, pr.Number, pr.OccurredAt.UTC().Format(time.RFC3339Nano)), "github", "review"))
 	}
 
 	return entries
+}
+
+func prDescription(summary, body string) string {
+	body = strings.TrimSpace(body)
+	if body == "" {
+		return summary
+	}
+	return summary + "\n\n" + body
 }
 
 // shortRepoName turns "owner/repo" into "repo" so entries from the same

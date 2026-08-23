@@ -33,6 +33,7 @@ type PRActivity struct {
 	Number     int
 	Repo       string // "owner/repo"
 	Title      string
+	Body       string
 	Action     string // "opened", "merged" or "reviewed"
 	URL        string
 	OccurredAt time.Time
@@ -167,7 +168,7 @@ func fetchReviews(ctx context.Context, client *Client, username, date string) ([
       pullRequestReviewContributions(first: 100, after: $after) {
         nodes {
           occurredAt
-          pullRequest { number title url repository { nameWithOwner } }
+          pullRequest { number title body url repository { nameWithOwner } }
         }
         pageInfo { hasNextPage endCursor }
       }
@@ -182,6 +183,7 @@ func fetchReviews(ctx context.Context, client *Client, username, date string) ([
 		PullRequest struct {
 			Number     int    `json:"number"`
 			Title      string `json:"title"`
+			Body       string `json:"body"`
 			URL        string `json:"url"`
 			Repository struct {
 				NameWithOwner string `json:"nameWithOwner"`
@@ -256,6 +258,7 @@ func fetchReviews(ctx context.Context, client *Client, username, date string) ([
 				Number:     item.PullRequest.Number,
 				Repo:       item.PullRequest.Repository.NameWithOwner,
 				Title:      item.PullRequest.Title,
+				Body:       item.PullRequest.Body,
 				Action:     "reviewed",
 				URL:        item.PullRequest.URL,
 				OccurredAt: item.OccurredAt,
@@ -283,6 +286,7 @@ func prFromIssue(issue *gh.Issue, action string) PRActivity {
 		Number: issue.GetNumber(),
 		Repo:   repo,
 		Title:  issue.GetTitle(),
+		Body:   issue.GetBody(),
 		Action: action,
 		URL:    issue.GetHTMLURL(),
 	}

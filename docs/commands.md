@@ -63,7 +63,8 @@ List saved summaries. With no options, it shows the current week.
 ### `devlog sync`
 
 Import commits, authored pull requests, and pull-request reviews from GitHub.
-Already imported activity is skipped.
+Imported PR entries include the PR body when it is not empty. Already imported
+activity is skipped.
 
 | Option | Description |
 | --- | --- |

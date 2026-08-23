@@ -132,6 +132,9 @@ func TestFetchActivityUsesDateBoundedPaginatedReviewContributions(t *testing.T) 
 	if len(activity.Reviews) != 2 {
 		t.Fatalf("reviews = %+v, want both pages", activity.Reviews)
 	}
+	if activity.Reviews[0].Body != "PR details" {
+		t.Fatalf("reviewed PR body = %q, want %q", activity.Reviews[0].Body, "PR details")
+	}
 	if got := activity.Reviews[0].OccurredAt.Format(time.RFC3339); got != "2026-08-08T10:30:00Z" {
 		t.Fatalf("occurredAt = %s", got)
 	}
@@ -143,7 +146,7 @@ func TestFetchActivityKeepsOpenedAndMergedEventsForSamePR(t *testing.T) {
 		case "/search/commits":
 			_, _ = w.Write([]byte(`{"total_count":0,"incomplete_results":false,"items":[]}`))
 		case "/search/issues":
-			_, _ = w.Write([]byte(`{"total_count":1,"incomplete_results":false,"items":[{"number":42,"title":"Ship it","repository_url":"https://api.github.com/repos/acme/widgets","html_url":"https://github.com/acme/widgets/pull/42"}]}`))
+			_, _ = w.Write([]byte(`{"total_count":1,"incomplete_results":false,"items":[{"number":42,"title":"Ship it","body":"PR details","repository_url":"https://api.github.com/repos/acme/widgets","html_url":"https://github.com/acme/widgets/pull/42"}]}`))
 		case "/graphql":
 			_, _ = w.Write([]byte(emptyReviewContributionPage()))
 		default:
@@ -161,6 +164,9 @@ func TestFetchActivityKeepsOpenedAndMergedEventsForSamePR(t *testing.T) {
 	}
 	if len(activity.PRs) != 2 || activity.PRs[0].Action != "opened" || activity.PRs[1].Action != "merged" {
 		t.Fatalf("pull requests = %+v, want opened and merged events", activity.PRs)
+	}
+	if activity.PRs[0].Body != "PR details" || activity.PRs[1].Body != "PR details" {
+		t.Fatalf("pull request bodies = %q and %q, want both populated", activity.PRs[0].Body, activity.PRs[1].Body)
 	}
 }
 
@@ -243,7 +249,7 @@ func serverURL(r *http.Request) string {
 }
 
 func reviewContributionPage(occurredAt string, hasNext bool, cursor string) string {
-	return fmt.Sprintf(`{"data":{"user":{"contributionsCollection":{"pullRequestReviewContributions":{"nodes":[{"occurredAt":%q,"pullRequest":{"number":42,"title":"Ship it","url":"https://github.com/acme/widgets/pull/42","repository":{"nameWithOwner":"acme/widgets"}}}],"pageInfo":{"hasNextPage":%t,"endCursor":%q}}}}}}`, occurredAt, hasNext, cursor)
+	return fmt.Sprintf(`{"data":{"user":{"contributionsCollection":{"pullRequestReviewContributions":{"nodes":[{"occurredAt":%q,"pullRequest":{"number":42,"title":"Ship it","body":"PR details","url":"https://github.com/acme/widgets/pull/42","repository":{"nameWithOwner":"acme/widgets"}}}],"pageInfo":{"hasNextPage":%t,"endCursor":%q}}}}}}`, occurredAt, hasNext, cursor)
 }
 
 func emptyReviewContributionPage() string {

@@ -24,23 +24,31 @@ var remoteInitCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		branch, _ := cmd.Flags().GetString("branch")
-		repo, err := store.OpenRepository()
-		if err != nil {
-			return fmt.Errorf("could not open DevLog data: %w", err)
-		}
-		manager := gitremote.New(repo, args[0], branch)
-		if err := manager.Init(cmd.Context()); err != nil {
-			return fmt.Errorf("could not initialize remote synchronization: %w", err)
-		}
-		viper.Set("remote.enabled", true)
-		viper.Set("remote.url", args[0])
-		viper.Set("remote.branch", branch)
-		if err := persistConfig(); err != nil {
-			return fmt.Errorf("remote synchronization was initialized, but the configuration could not be saved: %w", err)
+		if err := initRemote(cmd.Context(), args[0], branch); err != nil {
+			return err
 		}
 		fmt.Printf("Remote synchronization initialized on branch %s.\n", branch)
 		return nil
 	},
+}
+
+// initRemote connects the local data to the repository at url, merging what
+// other devices already pushed, and saves the remote settings.
+func initRemote(ctx context.Context, url, branch string) error {
+	repo, err := store.OpenRepository()
+	if err != nil {
+		return fmt.Errorf("could not open DevLog data: %w", err)
+	}
+	if err := gitremote.New(repo, url, branch).Init(ctx); err != nil {
+		return fmt.Errorf("could not initialize remote synchronization: %w", err)
+	}
+	viper.Set("remote.enabled", true)
+	viper.Set("remote.url", url)
+	viper.Set("remote.branch", branch)
+	if err := persistConfig(); err != nil {
+		return fmt.Errorf("remote synchronization was initialized, but the configuration could not be saved: %w", err)
+	}
+	return nil
 }
 
 var remoteStatusCmd = &cobra.Command{

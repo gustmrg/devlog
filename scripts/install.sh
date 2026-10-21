@@ -123,5 +123,5 @@ fi
 printf 'Installed DevLog %s at %s\n' "$release_tag" "$binary_path"
 
 if [ -z "${HOME:-}" ] || [ ! -f "$HOME/.devlog/config.json" ]; then
-    printf '%s\n' "Next step: run 'devlog init' to create the DevLog configuration."
+    printf '%s\n' "Next step: run 'devlog setup' to configure DevLog on this device."
 fi

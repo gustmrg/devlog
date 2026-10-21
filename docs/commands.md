@@ -4,6 +4,33 @@ This page covers DevLog's commands and commonly used options. Run
 `devlog <command> --help` for the authoritative help available in your installed
 version.
 
+## Setup
+
+### `devlog setup`
+
+Configure DevLog on this device, one question at a time. Each question shows
+the current or detected value in brackets; press Enter to keep it, or answer
+`none` to leave out an optional value. Invalid answers are asked again.
+
+It first asks what the device is for:
+
+| Role | What setup asks |
+| --- | --- |
+| Work machine | Folders with your repositories, your commit emails, the `opencode` executable, and the Claude Code transcripts folder when it is not the default. Collects `git`, `claude-code`, and `opencode`. |
+| Always-on machine | The GitHub account to collect, after checking for a token, and whether to install the MCP service (Linux). Collects `github`. |
+| Both | Everything above. |
+
+Every role also sets the device name, time zone, and ticket key pattern. The
+answers are saved before setup offers, one confirmation at a time, to connect
+the private data repository, schedule collection on weekdays, install the MCP
+service, and run a test collection that saves nothing. Settings it does not
+ask about are kept. Run it again to change an answer; `devlog config set`
+changes single values without questions.
+
+When the GitHub token only lives in your shell's environment, setup offers to
+save it in `~/.devlog/collect.env`, readable only by you, so scheduled runs can
+use it.
+
 ## Entries
 
 ### `devlog add <description>`
@@ -222,7 +249,7 @@ See [Configuration and integrations](configuration.md) for available settings.
 
 | Command | Description |
 | --- | --- |
-| `devlog init` | Create the local data directory and default configuration. Safe to repeat. |
+| `devlog init` | Create the local data directory and default configuration without questions. Safe to repeat. |
 | `devlog migrate` | Migrate legacy daily logs to the current storage format. |
 | `devlog version` | Print version and build information. Add `--check` to check for updates. |
 | `devlog update` | Install the latest release. Add `-y` to skip confirmation. |

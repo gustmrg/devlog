@@ -27,10 +27,10 @@ Safe to run multiple times — will not overwrite existing data.`,
 
 		if !result.Created {
 			fmt.Fprintf(cmd.OutOrStdout(), "%s DevLog is already initialized. Configuration left unchanged at %s\n", color.GreenString("✔"), result.ConfigFile)
-			return nil
+		} else {
+			fmt.Fprintf(cmd.OutOrStdout(), "%s DevLog initialized. Configuration created at %s\n", color.GreenString("✔"), result.ConfigFile)
 		}
-
-		fmt.Fprintf(cmd.OutOrStdout(), "%s DevLog initialized. Configuration created at %s\n", color.GreenString("✔"), result.ConfigFile)
+		fmt.Fprintln(cmd.OutOrStdout(), "Run devlog setup to configure activity collection on this device.")
 		return nil
 	},
 }

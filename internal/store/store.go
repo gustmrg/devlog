@@ -26,9 +26,10 @@ type Entry struct {
 	CreatedAt   time.Time  `json:"createdAt"`
 	UpdatedAt   time.Time  `json:"updatedAt,omitempty"`
 	DeletedAt   *time.Time `json:"deletedAt,omitempty"`
-	// Source identifies the external origin of an entry (e.g. "github:commit:<sha>"),
+	// Source identifies the external origin of an entry (e.g. "commit:<sha>"),
 	// used to keep repeated syncs idempotent. Empty for manually added entries.
-	Source string `json:"source,omitempty"`
+	Source   string    `json:"source,omitempty"`
+	Activity *Activity `json:"activity,omitempty"`
 }
 
 type Summary struct {

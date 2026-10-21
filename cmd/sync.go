@@ -7,14 +7,12 @@ import (
 	"os"
 	"os/exec"
 	"strings"
-	"time"
 
 	ghsync "devlog/internal/github"
 	"devlog/internal/llm"
 	"devlog/internal/store"
 	"devlog/templates"
 
-	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -22,12 +20,20 @@ import (
 var syncCmd = &cobra.Command{
 	Use:   "sync",
 	Short: "Import GitHub activity (commits, PRs, reviews) as entries",
-	Long: `Fetches your GitHub activity for a date — commits, pull requests you
-authored and pull requests you reviewed — and adds them as entries to
-that day's log. Works with private repositories the token can access.
+	Long: `Collects your GitHub activity for a date and adds it to that day's log.
+It is the same as devlog collect --sources github, with --polish to rewrite
+new descriptions with the configured LLM:
 
-Uses github.username when configured, otherwise discovers the authenticated
-GitHub login. Authentication comes from the environment variable named by
+  - commits you pushed to any branch in the last 30 days (GitHub keeps no
+    older events), and commits on default branches at any date
+  - pull requests you opened or that were merged, with their head branch
+  - pull requests you reviewed, and the issues and pull requests you
+    commented on
+  - branches you created
+
+Works with private repositories the token can access. Uses github.username
+when configured, otherwise discovers the authenticated GitHub login.
+Authentication comes from the environment variable named by
 github.tokenEnvVar (default GITHUB_TOKEN), falling back to an authenticated
 GitHub CLI. The token needs the "repo" scope (classic) or Contents and Pull
 requests read access (fine-grained).
@@ -41,116 +47,52 @@ Examples:
   devlog sync --polish
   devlog sync --dry-run`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		dateFlag, _ := cmd.Flags().GetString("date")
-		dryRun, _ := cmd.Flags().GetBool("dry-run")
-		polish, _ := cmd.Flags().GetBool("polish")
-		remoteSync, _ := cmd.Flags().GetBool("remote")
-		envFile, _ := cmd.Flags().GetString("env-file")
-		if envFile != "" {
-			path, err := absolutePath(envFile)
-			if err != nil {
-				return fmt.Errorf("could not resolve environment file %q: %w", envFile, err)
-			}
-			if err := loadEnvFile(path); err != nil {
-				return fmt.Errorf("could not load environment file: %w", err)
-			}
-		}
-		repo, err := store.OpenRepository()
-		if err != nil {
-			return fmt.Errorf("could not open DevLog data: %w", err)
-		}
-		if remoteSync && !dryRun {
-			if err := syncConfiguredRemote(cmd.Context(), repo); err != nil {
-				return fmt.Errorf("remote pull failed: %w", err)
-			}
-		}
-
-		syncDate := time.Now()
-		if dateFlag != "" {
-			parsed, err := time.Parse("2006-01-02", dateFlag)
-			if err != nil {
-				return fmt.Errorf("invalid --date value %q: expected YYYY-MM-DD", dateFlag)
-			}
-			syncDate = parsed
-		}
-
-		tokenEnvVar := viper.GetString("github.tokenEnvVar")
-		if tokenEnvVar == "" {
-			tokenEnvVar = "GITHUB_TOKEN"
-		}
-		token, tokenSource, err := resolveGitHubToken(cmd.Context(), tokenEnvVar)
+		loc, err := collectLocation()
 		if err != nil {
 			return err
 		}
-
-		ctx := cmd.Context()
-		client := ghsync.NewClient(ctx, token)
-		username := viper.GetString("github.username")
-		if username == "" {
-			user, _, err := client.REST.Users.Get(ctx, "")
-			if err != nil {
-				return fmt.Errorf("could not determine the GitHub username for the authenticated account: %w; set it with devlog config set github.username <username>", err)
-			}
-			username = user.GetLogin()
-			if username == "" {
-				return fmt.Errorf("GitHub returned an empty username; set one with devlog config set github.username <username>")
-			}
-			fmt.Printf("Using authenticated GitHub user %s.\n", username)
-		}
-		if tokenSource == "gh" {
-			fmt.Println("Using authentication from GitHub CLI.")
-		}
-
-		fmt.Printf("Fetching GitHub activity for %s (%s)...\n", username, syncDate.Format("2006-01-02"))
-		activity, err := ghsync.FetchActivity(ctx, client, username, syncDate)
+		window, err := collectWindow(cmd, loc)
 		if err != nil {
-			return fmt.Errorf("could not fetch GitHub activity for %s: %w", syncDate.Format("2006-01-02"), err)
+			return err
 		}
-
-		entries := mapActivity(activity)
-		if len(entries) == 0 {
-			fmt.Println("No GitHub activity found for this date.")
-			return nil
-		}
-
-		if polish {
-			polished, err := polishEntries(cmd.Context(), entries)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "%s Could not polish entries; using the original descriptions: %s\n", color.YellowString("!"), err)
-			} else {
-				entries = polished
-			}
-		}
-
-		if dryRun {
-			for _, e := range entries {
-				fmt.Printf("%s [%s] %s\n", color.CyanString("•"), e.Project, e.Description)
-			}
-			fmt.Printf("%s %d entries (dry-run, nothing written)\n", color.GreenString("✔"), len(entries))
-			return nil
-		}
-
-		addedEntries, err := repo.AddEntries(syncDate, entries)
-		if err != nil {
-			return fmt.Errorf("could not save imported GitHub activity: %w", err)
-		}
-		for _, e := range addedEntries {
-			fmt.Printf("%s [%s] %s\n", color.GreenString("+"), e.Project, e.Description)
-		}
-
-		if len(addedEntries) == 0 {
-			fmt.Println("All activity for this date was already imported.")
-			return nil
-		}
-
-		fmt.Printf("%s %d new entries added\n", color.GreenString("✔"), len(addedEntries))
-		if remoteSync {
-			if err := syncConfiguredRemote(cmd.Context(), repo); err != nil {
-				return fmt.Errorf("entries were saved locally, but remote push failed: %w", err)
-			}
-		}
-		return nil
+		options := collectOptions{window: window, sources: []string{"github"}}
+		options.dryRun, _ = cmd.Flags().GetBool("dry-run")
+		options.polish, _ = cmd.Flags().GetBool("polish")
+		options.remote, _ = cmd.Flags().GetBool("remote")
+		options.envFile, _ = cmd.Flags().GetString("env-file")
+		options.logFile, _ = cmd.Flags().GetString("log-file")
+		return executeCollect(cmd, options)
 	},
+}
+
+// connectGitHub authenticates the GitHub collector and finds the login whose
+// activity it reads.
+func connectGitHub(ctx context.Context) (*ghsync.Client, string, error) {
+	tokenEnvVar := viper.GetString("github.tokenEnvVar")
+	if tokenEnvVar == "" {
+		tokenEnvVar = "GITHUB_TOKEN"
+	}
+	token, tokenSource, err := resolveGitHubToken(ctx, tokenEnvVar)
+	if err != nil {
+		return nil, "", err
+	}
+	if tokenSource == "gh" {
+		fmt.Fprintln(os.Stderr, "Using authentication from GitHub CLI.")
+	}
+	client := ghsync.NewClient(ctx, token)
+	username := viper.GetString("github.username")
+	if username == "" {
+		user, _, err := client.REST.Users.Get(ctx, "")
+		if err != nil {
+			return nil, "", fmt.Errorf("could not determine the GitHub username for the authenticated account: %w; set it with devlog config set github.username <username>", err)
+		}
+		username = user.GetLogin()
+		if username == "" {
+			return nil, "", fmt.Errorf("GitHub returned an empty username; set one with devlog config set github.username <username>")
+		}
+		fmt.Fprintf(os.Stderr, "Using authenticated GitHub user %s.\n", username)
+	}
+	return client, username, nil
 }
 
 func resolveGitHubToken(ctx context.Context, envVar string) (string, string, error) {
@@ -171,58 +113,6 @@ func resolveGitHubToken(ctx context.Context, envVar string) (string, string, err
 		return "", "", fmt.Errorf("GitHub CLI returned an empty token; run gh auth login again or set %s", envVar)
 	}
 	return token, "gh", nil
-}
-
-// mapActivity converts fetched GitHub activity into store entries.
-func mapActivity(activity ghsync.Activity) []store.Entry {
-	var entries []store.Entry
-
-	newEntry := func(project, description, source string, tags ...string) store.Entry {
-		now := time.Now()
-		return store.Entry{
-			Id:          store.EntryID(source),
-			Project:     project,
-			Description: description,
-			Tags:        tags,
-			CreatedAt:   now,
-			UpdatedAt:   now,
-			Source:      source,
-		}
-	}
-
-	for _, c := range activity.Commits {
-		entries = append(entries, newEntry(shortRepoName(c.Repo), c.Message, "github:commit:"+c.SHA, "github", "commit"))
-	}
-
-	for _, pr := range activity.PRs {
-		action := strings.ToUpper(pr.Action[:1]) + pr.Action[1:]
-		description := prDescription(fmt.Sprintf("%s PR #%d: %s", action, pr.Number, pr.Title), pr.Body)
-		entries = append(entries, newEntry(shortRepoName(pr.Repo), description, fmt.Sprintf("github:pr:%s#%d:%s", pr.Repo, pr.Number, pr.Action), "github", "pr"))
-	}
-
-	for _, pr := range activity.Reviews {
-		description := prDescription(fmt.Sprintf("Reviewed PR #%d: %s", pr.Number, pr.Title), pr.Body)
-		entries = append(entries, newEntry(shortRepoName(pr.Repo), description, fmt.Sprintf("github:review:%s#%d:%s", pr.Repo, pr.Number, pr.OccurredAt.UTC().Format(time.RFC3339Nano)), "github", "review"))
-	}
-
-	return entries
-}
-
-func prDescription(summary, body string) string {
-	body = strings.TrimSpace(body)
-	if body == "" {
-		return summary
-	}
-	return summary + "\n\n" + body
-}
-
-// shortRepoName turns "owner/repo" into "repo" so entries from the same
-// repository share one project name regardless of the item type.
-func shortRepoName(fullName string) string {
-	if i := strings.LastIndex(fullName, "/"); i >= 0 {
-		return fullName[i+1:]
-	}
-	return fullName
 }
 
 // polishEntries rewrites entry descriptions with an LLM using the concise
@@ -286,4 +176,6 @@ func init() {
 	syncCmd.Flags().Bool("remote", false, "Pull and push the configured DevLog Git remote")
 	syncCmd.Flags().String("env-file", "", "Load API credentials from a protected KEY=VALUE file")
 	_ = syncCmd.Flags().MarkHidden("env-file")
+	syncCmd.Flags().String("log-file", "", "Append all output to this file")
+	_ = syncCmd.Flags().MarkHidden("log-file")
 }

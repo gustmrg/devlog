@@ -9,6 +9,7 @@ import (
 	"devlog/internal/store"
 	"devlog/templates"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/fatih/color"
@@ -51,6 +52,11 @@ Examples:
 		if err != nil {
 			return fmt.Errorf("could not read entries for %s: %w", summaryDate.Format("2006-01-02"), err)
 		}
+		// Sessions and branch activity describe state, not finished work, so
+		// they stay out of summaries.
+		entries = slices.DeleteFunc(entries, func(e store.Entry) bool {
+			return e.Activity != nil && e.Activity.Snapshot()
+		})
 
 		if len(entries) == 0 {
 			fmt.Printf("  %s\n", color.New(color.FgHiBlack).Sprintf("· No entries found for %s", summaryDate.Format("2006-01-02")))

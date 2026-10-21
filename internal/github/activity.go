@@ -20,12 +20,17 @@ type Activity struct {
 	Reviews []PRActivity
 }
 
-// CommitActivity is a single authored commit with its change stats.
+// CommitActivity is a single authored commit.
 type CommitActivity struct {
-	SHA     string
-	Repo    string // "owner/repo"
-	Message string // first line of the commit message
-	URL     string
+	SHA        string
+	Repo       string // "owner/repo"
+	Message    string // first line of the commit message
+	Body       string // the rest of the commit message
+	URL        string
+	AuthoredAt time.Time
+	// Generated is true for merge commits and for commits GitHub made on the
+	// user's behalf, such as squash merges, which repeat work already counted.
+	Generated bool
 }
 
 // PRActivity is a pull request the user authored or reviewed.
@@ -89,11 +94,15 @@ func fetchCommits(ctx context.Context, client *Client, username, date string) ([
 			expected = result.GetTotal()
 		}
 		for _, item := range result.Commits {
+			subject, body := splitMessage(item.GetCommit().GetMessage())
 			commits = append(commits, CommitActivity{
-				SHA:     item.GetSHA(),
-				Repo:    item.GetRepository().GetFullName(),
-				Message: firstLine(item.GetCommit().GetMessage()),
-				URL:     item.GetHTMLURL(),
+				SHA:        item.GetSHA(),
+				Repo:       item.GetRepository().GetFullName(),
+				Message:    subject,
+				Body:       body,
+				URL:        item.GetHTMLURL(),
+				AuthoredAt: item.GetCommit().GetAuthor().GetDate().Time,
+				Generated:  len(item.Parents) > 1 || item.GetCommitter().GetLogin() == webFlowLogin,
 			})
 		}
 		if response.NextPage == 0 {
@@ -282,19 +291,29 @@ func prFromIssue(issue *gh.Issue, action string) PRActivity {
 			repo = u[i+len("/repos/"):]
 		}
 	}
+	occurredAt := issue.GetCreatedAt().Time
+	if action == "merged" {
+		occurredAt = issue.GetPullRequestLinks().GetMergedAt().Time
+		if occurredAt.IsZero() {
+			occurredAt = issue.GetClosedAt().Time
+		}
+	}
 	return PRActivity{
-		Number: issue.GetNumber(),
-		Repo:   repo,
-		Title:  issue.GetTitle(),
-		Body:   issue.GetBody(),
-		Action: action,
-		URL:    issue.GetHTMLURL(),
+		Number:     issue.GetNumber(),
+		Repo:       repo,
+		Title:      issue.GetTitle(),
+		Body:       issue.GetBody(),
+		Action:     action,
+		URL:        issue.GetHTMLURL(),
+		OccurredAt: occurredAt,
 	}
 }
 
-func firstLine(s string) string {
-	if i := strings.IndexByte(s, '\n'); i >= 0 {
-		return s[:i]
-	}
-	return s
+// webFlowLogin is the committer of commits GitHub creates from its web UI.
+const webFlowLogin = "web-flow"
+
+// splitMessage returns a commit message's first line and the trimmed rest.
+func splitMessage(message string) (string, string) {
+	subject, body, _ := strings.Cut(message, "\n")
+	return strings.TrimSpace(subject), strings.TrimSpace(body)
 }

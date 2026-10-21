@@ -181,3 +181,17 @@ func assertEntryCount(t *testing.T, repo *store.Repository, date time.Time, want
 		t.Fatalf("entry count = %d, want %d", len(entries), wanted)
 	}
 }
+
+func TestNewerDeviceStatusKeepsTheLatestUpdate(t *testing.T) {
+	older := []byte(`{"deviceId":"d","updatedAt":"2026-08-17T12:00:00Z","collectors":{}}`)
+	newer := []byte(`{"deviceId":"d","updatedAt":"2026-08-17T18:00:00Z","collectors":{}}`)
+	if got := newerDeviceStatus(older, newer); string(got) != string(newer) {
+		t.Errorf("newerDeviceStatus(older, newer) kept %s", got)
+	}
+	if got := newerDeviceStatus(newer, older); string(got) != string(newer) {
+		t.Errorf("newerDeviceStatus(newer, older) kept %s", got)
+	}
+	if got := newerDeviceStatus(nil, older); string(got) != string(older) {
+		t.Errorf("newerDeviceStatus(nil, older) kept %s", got)
+	}
+}

@@ -163,6 +163,8 @@ func (m *Manager) resolveConflict(ctx context.Context, path string) error {
 				return err
 			}
 		}
+	case strings.HasPrefix(path, "devices/") && strings.HasSuffix(path, ".json"):
+		winner = newerDeviceStatus(ours, theirs)
 	case path == ".devlog-version" || path == ".gitignore":
 		winner = ours
 		if len(winner) == 0 {
@@ -213,6 +215,28 @@ func newerEntry(a, b []byte) []byte {
 		secondTime = second.CreatedAt
 	}
 	if secondTime.After(firstTime) || secondTime.Equal(firstTime) && bytes.Compare(b, a) > 0 {
+		return b
+	}
+	return a
+}
+
+// newerDeviceStatus keeps the more recently updated status. Each device only
+// writes its own file, so this resolves clones that share a device ID.
+func newerDeviceStatus(a, b []byte) []byte {
+	if len(a) == 0 {
+		return b
+	}
+	if len(b) == 0 {
+		return a
+	}
+	var first, second store.DeviceStatus
+	if json.Unmarshal(a, &first) != nil {
+		return b
+	}
+	if json.Unmarshal(b, &second) != nil {
+		return a
+	}
+	if second.UpdatedAt.After(first.UpdatedAt) || second.UpdatedAt.Equal(first.UpdatedAt) && bytes.Compare(b, a) > 0 {
 		return b
 	}
 	return a

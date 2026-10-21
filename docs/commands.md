@@ -30,6 +30,7 @@ Display entries. The explicit form `devlog entry list` is equivalent.
 | `-w, --week` | Show the current week. |
 | `-p, --project <name>` | Filter by project. |
 | `--tag <name>` | Filter by tag. |
+| `--json` | Print the day's entries as JSON, including collected activity. |
 
 ## Summaries
 

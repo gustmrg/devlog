@@ -2,6 +2,7 @@ package entry
 
 import (
 	"devlog/internal/store"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -30,12 +31,14 @@ Options:
   -w, --week               Show entries for the current week
   -p, --project <name>     Filter by project
       --tag <name>         Filter by tag
+      --json               Print the entries as JSON
 
 Examples:
   devlog list
   devlog list --week
   devlog list --project echo
-  devlog entry list --date 2026-04-13`,
+  devlog entry list --date 2026-04-13
+  devlog list --json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			repo, err := store.OpenRepository()
 			if err != nil {
@@ -57,6 +60,18 @@ Examples:
 			entries, err := repo.Entries(parsedLogDate)
 			if err != nil {
 				return fmt.Errorf("could not read entries for %s: %w", logDate, err)
+			}
+
+			if asJSON, _ := cmd.Flags().GetBool("json"); asJSON {
+				if entries == nil {
+					entries = []store.Entry{}
+				}
+				data, err := json.MarshalIndent(map[string]any{"date": logDate, "entries": entries}, "", "  ")
+				if err != nil {
+					return fmt.Errorf("could not encode entries: %w", err)
+				}
+				fmt.Fprintln(cmd.OutOrStdout(), string(data))
+				return nil
 			}
 
 			if len(entries) == 0 {
@@ -83,7 +98,7 @@ Examples:
 				for _, tag := range e.Tags {
 					meta = append(meta, tagColor.Sprintf("#%s", tag))
 				}
-				meta = append(meta, dimColor.Sprint(e.CreatedAt.Format("3:04 PM")))
+				meta = append(meta, dimColor.Sprint(e.SortTime().Format("3:04 PM")))
 
 				indent := strings.Repeat(" ", 22)
 				fmt.Printf("  %s%s\n\n", indent, strings.Join(meta, "  "))
@@ -103,6 +118,7 @@ Examples:
 	listCmd.Flags().BoolP("week", "w", false, "Show entries for the current week")
 	listCmd.Flags().StringP("project", "p", "", "Filter by project")
 	listCmd.Flags().String("tag", "", "Filter by tag")
+	listCmd.Flags().Bool("json", false, "Print the entries as JSON")
 
 	return listCmd
 }

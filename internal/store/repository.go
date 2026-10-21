@@ -217,10 +217,11 @@ func (r *Repository) entriesUnlocked(date time.Time) ([]Entry, error) {
 		entries = append(entries, entry)
 	}
 	sort.Slice(entries, func(i, j int) bool {
-		if entries[i].CreatedAt.Equal(entries[j].CreatedAt) {
+		first, second := entries[i].SortTime(), entries[j].SortTime()
+		if first.Equal(second) {
 			return entries[i].Id < entries[j].Id
 		}
-		return entries[i].CreatedAt.Before(entries[j].CreatedAt)
+		return first.Before(second)
 	})
 	return entries, nil
 }

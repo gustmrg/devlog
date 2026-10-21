@@ -58,6 +58,9 @@ var updateCmd = &cobra.Command{
 	Long: `Checks GitHub for a newer release and, if found, downloads it,
 verifies its checksum, and replaces the running binary in place.
 
+On Linux, a running devlog-mcp service is restarted so it serves the new
+version, also when the update runs with sudo.
+
 Options:
   -y, --yes   Skip the confirmation prompt`,
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -105,6 +108,13 @@ Options:
 		}
 
 		fmt.Printf("%s updated to %s\n", color.GreenString("✔"), latest.Version())
+		if message, ok := restartMCPServiceAfterUpdate(); message != "" {
+			mark := color.GreenString("✔")
+			if !ok {
+				mark = color.YellowString("!")
+			}
+			fmt.Printf("%s %s\n", mark, message)
+		}
 		return nil
 	},
 }

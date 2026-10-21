@@ -218,7 +218,8 @@ On Linux, install the HTTP server as the systemd user service
 `devlog-mcp.service`, listening on `127.0.0.1:8766` unless `--http` says
 otherwise. Run `loginctl enable-linger "$USER"` so it keeps running while you
 are logged out, and remove it with `devlog mcp uninstall`, which keeps the
-token file and data. See [Setting up your devices](devices.md) for exposing it
+token file and data. `devlog update` restarts the service when it is running,
+so it serves the new version. See [Setting up your devices](devices.md) for exposing it
 over HTTPS with Tailscale.
 
 ## Multi-device sync
@@ -252,4 +253,4 @@ See [Configuration and integrations](configuration.md) for available settings.
 | `devlog init` | Create the local data directory and default configuration without questions. Safe to repeat. |
 | `devlog migrate` | Migrate legacy daily logs to the current storage format. |
 | `devlog version` | Print version and build information. Add `--check` to check for updates. |
-| `devlog update` | Install the latest release. Add `-y` to skip confirmation. |
+| `devlog update` | Install the latest release. Add `-y` to skip confirmation. On Linux, a running `devlog-mcp` service is restarted on the new version, also when the update runs with `sudo`. |

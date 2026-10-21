@@ -580,3 +580,22 @@ func expandHome(path string) (string, error) {
 	}
 	return filepath.Abs(path)
 }
+
+// BranchAt returns the branch checked out in dir's repository at t, as far as
+// its reflog tells, or "" when it is unknown.
+func BranchAt(ctx context.Context, git, dir string, t time.Time) string {
+	if git == "" {
+		git = "git"
+	}
+	entries, err := readReflog(ctx, git, dir)
+	if err != nil {
+		return ""
+	}
+	branch := ""
+	walkReflog(entries, func(current string, at time.Time) {
+		if !at.After(t) {
+			branch = current
+		}
+	})
+	return branch
+}

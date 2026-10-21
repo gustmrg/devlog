@@ -72,6 +72,11 @@ instead of duplicating them.
 | --- | --- |
 | `git` | Commits you authored on every branch, branch activity from the reflog, and uncommitted or unpushed work on the checked-out branch, for the repositories under `collect.git.roots`. |
 | `github` | Commits you pushed to any branch, pull requests you opened or that were merged (with their head branch), reviews, comments, and created branches. |
+| `claude-code` | Claude Code sessions: when they ran on each day, in which repository and branch, their title, and how many prompts they had. |
+| `opencode` | The same for opencode sessions, listed through the `opencode` CLI for the repositories under `collect.git.roots`. |
+
+Sessions are read for their times, places, and titles only; prompts and
+replies are never stored.
 
 | Option | Description |
 | --- | --- |

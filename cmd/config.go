@@ -20,8 +20,10 @@ const (
 )
 
 var configurableKeys = map[string]configValueKind{
+	"collect.claudecode.path":  configString,
 	"collect.git.authoremails": configStringList,
 	"collect.git.roots":        configStringList,
+	"collect.opencode.command": configString,
 	"collect.sources":          configStringList,
 	"collect.ticketpattern":    configString,
 	"collect.timezone":         configString,

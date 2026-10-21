@@ -25,11 +25,13 @@ devlog config set defaults.project my-project
 | `llm.model` | Model sent to the provider. | `openai/gpt-oss-120b:free` |
 | `llm.apiKeyEnvVar` | Environment variable containing the LLM API key. | `OPENROUTER_API_KEY` |
 | `device.name` | Name that labels this device in collected activity. | Host name |
-| `collect.sources` | Sources `devlog collect` uses when `--sources` is omitted. | `git` |
+| `collect.sources` | Sources `devlog collect` uses when `--sources` is omitted. | `git,claude-code,opencode` |
 | `collect.timezone` | IANA time zone collected activity is filed under. | System time zone |
 | `collect.ticketPattern` | Regular expression for ticket keys in branches and descriptions. | `\b[A-Z][A-Z0-9]+-[0-9]+\b` |
 | `collect.git.roots` | Directories searched for Git repositories, up to four levels deep. | empty |
 | `collect.git.authorEmails` | Author emails whose commits are yours. | Each repository's `user.email` |
+| `collect.claudeCode.path` | Claude Code's transcript directory. | `$CLAUDE_CONFIG_DIR/projects` or `~/.claude/projects` |
+| `collect.opencode.command` | The opencode executable. | `opencode` |
 | `remote.enabled` | Whether Git synchronization is configured. | `false` |
 | `remote.url` | Data repository URL. | empty |
 | `remote.branch` | Data repository branch. | `main` |
@@ -52,6 +54,11 @@ devlog collect --dry-run
 
 Narrow `collect.ticketPattern` to your tracker's project keys when the default
 also matches words such as `UTF-8`.
+
+Sources whose tool is missing or not configured on a device are skipped, not
+failed, so the same `collect.sources` works on every machine. The `github`
+source needs a token and is meant for one always-on machine; add it there with
+`devlog config set collect.sources github`.
 
 ## GitHub
 

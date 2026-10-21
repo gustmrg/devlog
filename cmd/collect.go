@@ -12,7 +12,9 @@ import (
 	"time"
 
 	"devlog/internal/collector"
+	"devlog/internal/collector/claudecode"
 	"devlog/internal/collector/gitlocal"
+	"devlog/internal/collector/opencode"
 	ghsync "devlog/internal/github"
 	"devlog/internal/store"
 
@@ -22,7 +24,7 @@ import (
 )
 
 // defaultCollectSources run when collect.sources is not configured.
-var defaultCollectSources = []string{"git"}
+var defaultCollectSources = []string{"git", "claude-code", "opencode"}
 
 // collectorFactories build each collector from the configuration.
 var collectorFactories = map[string]func() collector.Collector{
@@ -35,6 +37,12 @@ var collectorFactories = map[string]func() collector.Collector{
 	"github": func() collector.Collector {
 		return &ghsync.Collector{Connect: connectGitHub}
 	},
+	"claude-code": func() collector.Collector {
+		return &claudecode.Collector{Dir: viper.GetString("collect.claudecode.path")}
+	},
+	"opencode": func() collector.Collector {
+		return &opencode.Collector{Roots: configList("collect.git.roots"), Command: viper.GetString("collect.opencode.command")}
+	},
 }
 
 var collectCmd = &cobra.Command{
@@ -43,11 +51,20 @@ var collectCmd = &cobra.Command{
 	Long: `Collects development activity and stores it as entries on the day it
 happened, without rewriting it:
 
-  git     commits you authored on every branch, branch activity from the
-          reflog, and uncommitted or unpushed work on the checked-out branch,
-          in the repositories under collect.git.roots
-  github  commits pushed to any branch, pull requests opened and merged,
-          reviews, comments, and created branches (see devlog sync --help)
+  git          commits you authored on every branch, branch activity from
+               the reflog, and uncommitted or unpushed work on the
+               checked-out branch, in the repositories under
+               collect.git.roots
+  github       commits pushed to any branch, pull requests opened and
+               merged, reviews, comments, and created branches (see
+               devlog sync --help)
+  claude-code  Claude Code sessions: when they ran, in which repository and
+               branch, their title, and how many prompts they had
+  opencode     the same for opencode sessions in the repositories under
+               collect.git.roots
+
+Sessions are read for their times and titles only; prompts and replies are
+not stored.
 
 Each entry keeps its repository, branch, ticket keys (collect.ticketPattern),
 and time, so an agent can later turn the day into timesheet descriptions.

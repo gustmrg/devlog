@@ -61,7 +61,7 @@ type Changes struct {
 // the work goes on, so a later collection replaces it instead of filling it.
 func (a *Activity) Snapshot() bool {
 	switch a.Kind {
-	case KindSession, KindBranchActivity:
+	case KindSession, KindBranchActivity, KindComment:
 		return true
 	}
 	return false
@@ -163,6 +163,42 @@ func (r *Repository) UpsertEntries(entries []Entry, loc *time.Location) (UpsertR
 		result.Updated = append(result.Updated, merged)
 	}
 	return result, nil
+}
+
+// Unstored returns the collected entries whose source is not stored yet on the
+// day their activity happened in loc.
+func (r *Repository) Unstored(entries []Entry, loc *time.Location) ([]Entry, error) {
+	unlock, err := r.Lock()
+	if err != nil {
+		return nil, err
+	}
+	defer unlock()
+	days := map[string]map[string]bool{}
+	var unstored []Entry
+	for _, entry := range entries {
+		if entry.Activity == nil {
+			continue
+		}
+		day := entry.Activity.OccurredAt.In(loc).Format("2006-01-02")
+		if days[day] == nil {
+			stored, err := r.storedEntriesUnlocked(day)
+			if err != nil {
+				return nil, err
+			}
+			days[day] = map[string]bool{}
+			for _, item := range stored {
+				days[day][item.entry.Source] = true
+			}
+		}
+		known := days[day][entry.Source]
+		for _, alias := range sourceAliases(entry.Source) {
+			known = known || days[day][alias]
+		}
+		if !known {
+			unstored = append(unstored, entry)
+		}
+	}
+	return unstored, nil
 }
 
 func normalizeCollected(entry Entry, loc *time.Location, now time.Time) Entry {

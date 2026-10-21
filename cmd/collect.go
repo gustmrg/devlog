@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -12,6 +13,7 @@ import (
 
 	"devlog/internal/collector"
 	"devlog/internal/collector/gitlocal"
+	ghsync "devlog/internal/github"
 	"devlog/internal/store"
 
 	"github.com/fatih/color"
@@ -30,6 +32,9 @@ var collectorFactories = map[string]func() collector.Collector{
 			AuthorEmails: configList("collect.git.authoremails"),
 		}
 	},
+	"github": func() collector.Collector {
+		return &ghsync.Collector{Connect: connectGitHub}
+	},
 }
 
 var collectCmd = &cobra.Command{
@@ -41,6 +46,8 @@ happened, without rewriting it:
   git     commits you authored on every branch, branch activity from the
           reflog, and uncommitted or unpushed work on the checked-out branch,
           in the repositories under collect.git.roots
+  github  commits pushed to any branch, pull requests opened and merged,
+          reviews, comments, and created branches (see devlog sync --help)
 
 Each entry keeps its repository, branch, ticket keys (collect.ticketPattern),
 and time, so an agent can later turn the day into timesheet descriptions.
@@ -74,21 +81,20 @@ type collectorRunSummary struct {
 	Entries   []store.Entry `json:"entries,omitempty"`
 }
 
-func runCollect(cmd *cobra.Command, args []string) error {
-	dryRun, _ := cmd.Flags().GetBool("dry-run")
-	remoteSync, _ := cmd.Flags().GetBool("remote")
-	asJSON, _ := cmd.Flags().GetBool("json")
-	envFile, _ := cmd.Flags().GetString("env-file")
-	if envFile != "" {
-		path, err := absolutePath(envFile)
-		if err != nil {
-			return fmt.Errorf("could not resolve environment file %q: %w", envFile, err)
-		}
-		if err := loadEnvFile(path); err != nil {
-			return fmt.Errorf("could not load environment file: %w", err)
-		}
-	}
+// collectOptions select what executeCollect collects and how.
+type collectOptions struct {
+	window  collector.Window
+	sources []string
+	dryRun  bool
+	remote  bool
+	asJSON  bool
+	envFile string
+	// polish rewrites the descriptions of new, non-snapshot entries with the
+	// configured LLM before they are stored.
+	polish bool
+}
 
+func runCollect(cmd *cobra.Command, args []string) error {
 	loc, err := collectLocation()
 	if err != nil {
 		return err
@@ -101,7 +107,27 @@ func runCollect(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	collectors, err := configuredCollectors(sources)
+	options := collectOptions{window: window, sources: sources}
+	options.dryRun, _ = cmd.Flags().GetBool("dry-run")
+	options.remote, _ = cmd.Flags().GetBool("remote")
+	options.asJSON, _ = cmd.Flags().GetBool("json")
+	options.envFile, _ = cmd.Flags().GetString("env-file")
+	return executeCollect(cmd, options)
+}
+
+func executeCollect(cmd *cobra.Command, options collectOptions) error {
+	dryRun, remoteSync, window := options.dryRun, options.remote, options.window
+	loc := window.Location
+	if options.envFile != "" {
+		path, err := absolutePath(options.envFile)
+		if err != nil {
+			return fmt.Errorf("could not resolve environment file %q: %w", options.envFile, err)
+		}
+		if err := loadEnvFile(path); err != nil {
+			return fmt.Errorf("could not load environment file: %w", err)
+		}
+	}
+	collectors, err := configuredCollectors(options.sources)
 	if err != nil {
 		return err
 	}
@@ -128,6 +154,13 @@ func runCollect(cmd *cobra.Command, args []string) error {
 	results := collector.Run(cmd.Context(), collectors, window, collector.Options{
 		DeviceID: deviceID, DeviceName: deviceName, Tickets: tickets,
 	})
+	if options.polish {
+		for i := range results {
+			if err := polishNewEntries(cmd.Context(), repo, &results[i], loc); err != nil {
+				fmt.Fprintf(os.Stderr, "%s Could not polish %s entries; using the original descriptions: %s\n", color.YellowString("!"), results[i].Collector, err)
+			}
+		}
+	}
 
 	report := collectReport{From: window.From, To: window.To, DryRun: dryRun}
 	runs := map[string]store.CollectorStatus{}
@@ -175,7 +208,7 @@ func runCollect(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	if asJSON {
+	if options.asJSON {
 		data, err := json.MarshalIndent(report, "", "  ")
 		if err != nil {
 			return fmt.Errorf("could not encode the collection report: %w", err)
@@ -186,6 +219,31 @@ func runCollect(cmd *cobra.Command, args []string) error {
 	}
 	if len(failed) > 0 {
 		return fmt.Errorf("collection failed for %s", strings.Join(failed, ", "))
+	}
+	return nil
+}
+
+// polishNewEntries rewrites the descriptions of the result's entries that are
+// not stored yet. Stored entries keep their description when upserted, so
+// polishing them again would only spend tokens.
+func polishNewEntries(ctx context.Context, repo *store.Repository, result *collector.Result, loc *time.Location) error {
+	candidates := slices.DeleteFunc(slices.Clone(result.Entries), func(e store.Entry) bool { return e.Activity.Snapshot() })
+	unstored, err := repo.Unstored(candidates, loc)
+	if err != nil || len(unstored) == 0 {
+		return err
+	}
+	polished, err := polishEntries(ctx, unstored)
+	if err != nil {
+		return err
+	}
+	descriptions := make(map[string]string, len(polished))
+	for _, entry := range polished {
+		descriptions[entry.Source] = entry.Description
+	}
+	for i, entry := range result.Entries {
+		if description, ok := descriptions[entry.Source]; ok {
+			result.Entries[i].Description = description
+		}
 	}
 	return nil
 }
@@ -204,7 +262,7 @@ func printCollectReport(report collectReport) {
 			continue
 		case report.DryRun:
 			for _, entry := range summary.Entries {
-				fmt.Printf("%s [%s] %s %s\n", color.CyanString("•"), entry.Project, entry.Activity.OccurredAt.Format("15:04"), firstDescriptionLine(entry.Description))
+				fmt.Printf("%s [%s] %s %s\n", color.CyanString("•"), entry.Project, entry.Activity.OccurredAt.In(report.From.Location()).Format("15:04"), firstDescriptionLine(entry.Description))
 			}
 			fmt.Printf("%s %s: %d entries (dry-run, nothing written)\n", color.GreenString("✔"), summary.Name, len(summary.Entries))
 		default:

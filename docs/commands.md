@@ -71,6 +71,7 @@ instead of duplicating them.
 | Source | What it records |
 | --- | --- |
 | `git` | Commits you authored on every branch, branch activity from the reflog, and uncommitted or unpushed work on the checked-out branch, for the repositories under `collect.git.roots`. |
+| `github` | Commits you pushed to any branch, pull requests you opened or that were merged (with their head branch), reviews, comments, and created branches. |
 
 | Option | Description |
 | --- | --- |
@@ -93,9 +94,14 @@ devlog collect --from 2026-08-17 --to 2026-08-21
 
 ### `devlog sync`
 
-Import commits, authored pull requests, and pull-request reviews from GitHub.
-Imported PR entries include the PR body when it is not empty. Already imported
-activity is skipped.
+Import GitHub activity for a date. It is the same as
+`devlog collect --sources github`, plus `--polish` to rewrite new descriptions
+with the configured LLM. Commits pushed to any branch come from your event
+feed, which GitHub keeps for 30 days; older dates still get pull requests,
+reviews, and commits on default branches. Merge commits and commits GitHub
+creates, such as squash merges, are skipped because the pull request already
+stands for them. Imported PR entries include the PR body when it is not empty.
+Already imported activity is skipped.
 
 | Option | Description |
 | --- | --- |

@@ -4,11 +4,13 @@
 ![Latest Release](https://img.shields.io/github/v/release/gustmrg/devlog)
 ![License](https://img.shields.io/github/license/gustmrg/devlog)
 
-A small command-line tool for recording daily development work and turning it
-into useful Markdown summaries.
+A small command-line tool that keeps a record of your daily development work and
+turns it into useful Markdown summaries. Write entries yourself, or let DevLog
+collect them from Git, GitHub, and your Claude Code and opencode sessions.
 
-DevLog works directly from the terminal and can also be called by coding agents
-and automation scripts.
+DevLog works directly from the terminal, can be called by automation scripts,
+and serves the collected activity to AI agents over MCP, so an agent can draft
+timesheet or status descriptions from what you actually did.
 
 ## Installation
 
@@ -51,6 +53,24 @@ devlog summary show
 
 Use `--date YYYY-MM-DD` with these commands to work with another day.
 
+To collect activity automatically, point DevLog at your repositories:
+
+```bash
+devlog config set collect.git.roots ~/dev
+devlog config set collect.git.authorEmails you@example.com
+
+# Preview what today's collection finds, then store it
+devlog collect --dry-run
+devlog collect
+
+# Collect on weekdays at the end of each work block
+devlog collect schedule --at 12:15,18:15
+```
+
+Running a collection again is safe: stored entries are completed, not duplicated.
+See [Setting up your devices](docs/devices.md) to gather several machines in one
+repository and serve the result to an agent with `devlog mcp`.
+
 ## Features
 
 - Dated activity entries organized by project and tags
@@ -76,6 +96,12 @@ DevLog keeps its configuration and data under `~/.devlog/` by default. API keys
 are read from environment variables and are never stored in the configuration
 file. If you enable multi-device sync, use a private repository because entries
 may contain sensitive work information.
+
+Collected entries include commit messages, branch and repository names, pull
+request titles, and the titles of coding agent sessions. Sessions are read for
+their times, places, and titles only; prompts and replies are never stored. The
+MCP server's bearer token is kept in `~/.devlog/mcp-token`, readable only by
+you.
 
 ## License
 

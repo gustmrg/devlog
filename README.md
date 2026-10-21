@@ -57,6 +57,7 @@ Use `--date YYYY-MM-DD` with these commands to work with another day.
 - Markdown summaries with optional AI-generated writing styles
 - Automatic activity collection from Git, GitHub, Claude Code, and opencode
 - Scheduled collection on macOS, Linux, and Windows
+- An MCP server that lets agents read the day's activity
 - Multi-device synchronization through a private Git repository
 - Local, conflict-resistant storage that remains easy to inspect
 - Self-updates with release checksum verification
@@ -65,6 +66,7 @@ Use `--date YYYY-MM-DD` with these commands to work with another day.
 
 - [Command reference](docs/commands.md)
 - [Configuration and integrations](docs/configuration.md)
+- [Setting up your devices](docs/devices.md)
 
 Run `devlog --help` or `devlog <command> --help` for help in the terminal.
 

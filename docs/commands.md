@@ -155,6 +155,45 @@ devlog sync schedule remove
 
 The schedule command also accepts `--polish`, `--remote`, and `--env-file`.
 
+## MCP server
+
+### `devlog mcp`
+
+Serve collected activity to AI agents over the
+[Model Context Protocol](https://modelcontextprotocol.io).
+
+| Tool | Description |
+| --- | --- |
+| `get_activity` | Entries of a day or a range of up to 31 days, in time order with kind, repository, branch, ticket keys, and local times; the tickets seen each day; and when each device last collected. Read-only. |
+| `add_entry` | Record work the user describes, such as a meeting, as a note at a given time. |
+
+Without flags the server speaks MCP over stdin and stdout:
+
+```json
+{ "mcpServers": { "devlog": { "command": "devlog", "args": ["mcp"] } } }
+```
+
+With `--http` it serves Streamable HTTP at `/mcp`, and every request must send
+`Authorization: Bearer <token>`. The token comes from `DEVLOG_MCP_TOKEN` or
+from `~/.devlog/mcp-token`, created with a random token (mode `0600`) on first
+use; `--token-file` names another file, which must exist.
+
+```bash
+devlog mcp --http 127.0.0.1:8766
+```
+
+When remote synchronization is configured, reads first pull the other devices'
+activity, at most once a minute, and added notes are pushed.
+
+### `devlog mcp install`
+
+On Linux, install the HTTP server as the systemd user service
+`devlog-mcp.service`, listening on `127.0.0.1:8766` unless `--http` says
+otherwise. Run `loginctl enable-linger "$USER"` so it keeps running while you
+are logged out, and remove it with `devlog mcp uninstall`, which keeps the
+token file and data. See [Setting up your devices](devices.md) for exposing it
+over HTTPS with Tailscale.
+
 ## Multi-device sync
 
 DevLog can synchronize its data directory through a private Git repository.

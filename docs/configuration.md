@@ -120,6 +120,8 @@ devlog remote init git@github.com:you/devlog-data.git
 ```
 
 DevLog uses the installed `git` executable, including its SSH keys and credential
-helpers. For unattended jobs, authentication must work without an interactive
+helpers. Its commits and merges in the data repository use the identity Git is
+configured with (`git config --global user.name` and `user.email`), falling back
+to `DevLog <devlog@local>` for whatever is missing. For unattended jobs, authentication must work without an interactive
 prompt. Use a private repository because activity entries may contain sensitive
 work information.

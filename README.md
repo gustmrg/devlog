@@ -29,13 +29,16 @@ installs to `%LOCALAPPDATA%\Programs\devlog` and adds that folder to your user
 irm https://raw.githubusercontent.com/gustmrg/devlog/main/scripts/install.ps1 | iex
 ```
 
-Then create the local configuration:
+Then configure DevLog on this device. `devlog setup` asks one question at a
+time, shows the current or detected value in brackets, and can schedule
+collection and run a test when it is done:
 
 ```bash
-devlog init
+devlog setup
 ```
 
-Running `devlog init` again is safe and does not overwrite existing settings.
+Run it again to change an answer. In scripts, `devlog init` creates the
+configuration without questions and `devlog config set` changes single values.
 
 ## Quick start
 
@@ -53,12 +56,10 @@ devlog summary show
 
 Use `--date YYYY-MM-DD` with these commands to work with another day.
 
-To collect activity automatically, point DevLog at your repositories:
+Once `devlog setup` knows where your repositories are, DevLog collects the
+activity for you:
 
 ```bash
-devlog config set collect.git.roots ~/dev
-devlog config set collect.git.authorEmails you@example.com
-
 # Preview what today's collection finds, then store it
 devlog collect --dry-run
 devlog collect

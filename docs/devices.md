@@ -24,7 +24,13 @@ check that your employer allows keeping them there.
 ## Work machines (macOS, Linux, Windows)
 
 Install DevLog with the script for your platform (see the [README](../README.md)),
-then:
+then run `devlog setup` and choose **Work machine**. It asks for the device
+name, time zone, ticket key pattern, the folders with your repositories, your
+commit emails, and the `opencode` executable; then it connects the data
+repository, schedules collection at 12:15 and 18:15 on weekdays, and runs a
+test collection.
+
+Without questions, the same configuration is:
 
 ```bash
 devlog init
@@ -50,8 +56,15 @@ logged on and catches up on collections missed while the computer was off.
 
 ## The always-on machine
 
-Install the Linux build with the install script, then configure it to
-collect GitHub activity and keep its data in the same repository:
+Install the Linux build with the install script, then run `devlog setup` and
+choose **Always-on machine**. It checks for a GitHub token, asks for the
+account to collect, connects the same data repository, schedules collection at
+12:20 and 18:20 on weekdays, a few minutes after the work machines, and
+installs the MCP service. When you are signed in with `gh auth login`, the
+scheduled runs use its token; a token that only lives in your shell's
+environment is offered to be saved in `~/.devlog/collect.env`.
+
+Without questions, the same configuration is:
 
 ```bash
 devlog init
@@ -64,8 +77,7 @@ devlog remote init git@github.com:you/devlog-data.git
 ```
 
 Give it a GitHub token that can read your work repositories, in a file only
-you can read, and schedule the collection a few minutes after the work
-machines:
+you can read, and schedule the collection:
 
 ```bash
 printf 'GITHUB_TOKEN=your-token\n' > ~/.devlog/collect.env
@@ -77,7 +89,8 @@ devlog collect schedule --at 12:20,18:20 --remote --env-file ~/.devlog/collect.e
 Organizations may need to approve a fine-grained token, or authorize a classic
 token for single sign-on, before it sees their private repositories.
 
-Then serve the activity over MCP and expose it over HTTPS on your tailnet:
+Then serve the activity over MCP (`devlog setup` installs the service for you)
+and expose it over HTTPS on your tailnet:
 
 ```bash
 devlog mcp install                 # listens on 127.0.0.1:8766

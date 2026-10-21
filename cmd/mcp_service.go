@@ -47,57 +47,63 @@ keep the server running while you are logged out.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		address, _ := cmd.Flags().GetString("http")
 		tokenFile, _ := cmd.Flags().GetString("token-file")
-		if err := requireSystemd(); err != nil {
-			return err
-		}
-		if err := validateListenAddress(address); err != nil {
-			return err
-		}
-		executable, err := serviceExecutable()
-		if err != nil {
-			return err
-		}
-		explicit := tokenFile != ""
-		if tokenFile == "" {
-			if tokenFile, err = defaultMCPTokenPath(); err != nil {
-				return err
-			}
-		}
-		if tokenFile, err = filepath.Abs(tokenFile); err != nil {
-			return fmt.Errorf("could not resolve the token file path: %w", err)
-		}
-		// The service reads the token file, never DEVLOG_MCP_TOKEN, so the file
-		// must hold a valid token before the service starts.
-		if _, err := mcpTokenFile(tokenFile, explicit); err != nil {
-			return err
-		}
-		unitPath, err := mcpUnitPath()
-		if err != nil {
-			return err
-		}
-		if err := os.MkdirAll(filepath.Dir(unitPath), 0o755); err != nil {
-			return fmt.Errorf("could not create the systemd user unit directory: %w", err)
-		}
-		if err := os.WriteFile(unitPath, []byte(mcpUnit(executable, address, tokenFile)), 0o644); err != nil {
-			return fmt.Errorf("could not write %s: %w", unitPath, err)
-		}
-		for _, args := range [][]string{
-			{"--user", "daemon-reload"},
-			{"--user", "enable", mcpServiceName},
-			{"--user", "restart", mcpServiceName},
-		} {
-			if err := systemctl(args...); err != nil {
-				return err
-			}
-		}
-		fmt.Printf("Installed and started %s\n", unitPath)
-		fmt.Printf("Serving http://%s%s\n", address, mcpserver.EndpointPath)
-		fmt.Printf("Bearer token in %s\n", tokenFile)
-		if !lingerEnabled() {
-			fmt.Println(`Note: lingering is off or unknown, so the service stops when you log out; run "loginctl enable-linger" to keep it running.`)
-		}
-		return nil
+		return installMCPService(address, tokenFile)
 	},
+}
+
+// installMCPService installs and starts devlog-mcp.service on address, using
+// tokenFile or the default token file, and reports what it did.
+func installMCPService(address, tokenFile string) error {
+	if err := requireSystemd(); err != nil {
+		return err
+	}
+	if err := validateListenAddress(address); err != nil {
+		return err
+	}
+	executable, err := serviceExecutable()
+	if err != nil {
+		return err
+	}
+	explicit := tokenFile != ""
+	if tokenFile == "" {
+		if tokenFile, err = defaultMCPTokenPath(); err != nil {
+			return err
+		}
+	}
+	if tokenFile, err = filepath.Abs(tokenFile); err != nil {
+		return fmt.Errorf("could not resolve the token file path: %w", err)
+	}
+	// The service reads the token file, never DEVLOG_MCP_TOKEN, so the file
+	// must hold a valid token before the service starts.
+	if _, err := mcpTokenFile(tokenFile, explicit); err != nil {
+		return err
+	}
+	unitPath, err := mcpUnitPath()
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(unitPath), 0o755); err != nil {
+		return fmt.Errorf("could not create the systemd user unit directory: %w", err)
+	}
+	if err := os.WriteFile(unitPath, []byte(mcpUnit(executable, address, tokenFile)), 0o644); err != nil {
+		return fmt.Errorf("could not write %s: %w", unitPath, err)
+	}
+	for _, args := range [][]string{
+		{"--user", "daemon-reload"},
+		{"--user", "enable", mcpServiceName},
+		{"--user", "restart", mcpServiceName},
+	} {
+		if err := systemctl(args...); err != nil {
+			return err
+		}
+	}
+	fmt.Printf("Installed and started %s\n", unitPath)
+	fmt.Printf("Serving http://%s%s\n", address, mcpserver.EndpointPath)
+	fmt.Printf("Bearer token in %s\n", tokenFile)
+	if !lingerEnabled() {
+		fmt.Println(`Note: lingering is off or unknown, so the service stops when you log out; run "loginctl enable-linger" to keep it running.`)
+	}
+	return nil
 }
 
 var mcpUninstallCmd = &cobra.Command{

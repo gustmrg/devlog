@@ -56,7 +56,7 @@ try {
 
     Write-Host "Installed DevLog v$Version to $(Join-Path $InstallDir $Binary)"
     if (-not (Test-Path (Join-Path $HOME '.devlog\config.json'))) {
-        Write-Host "Next step: run 'devlog init' to create the DevLog configuration."
+        Write-Host "Next step: run 'devlog setup' to configure DevLog on this device."
     }
 }
 finally {

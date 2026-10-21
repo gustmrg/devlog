@@ -185,6 +185,13 @@ func Initialize() (InitResult, error) {
 	if err := os.MkdirAll(path, 0755); err != nil {
 		return InitResult{}, fmt.Errorf("could not create application directory %s: %w", path, err)
 	}
+	// The defaults below would replace the loaded settings in memory, and a
+	// later save would write them over the user's configuration.
+	if _, err := os.Stat(result.ConfigFile); err == nil {
+		return result, nil
+	} else if !os.IsNotExist(err) {
+		return InitResult{}, fmt.Errorf("could not read config file %s: %w", result.ConfigFile, err)
+	}
 
 	viper.AddConfigPath(path)
 	viper.SetConfigName("config")

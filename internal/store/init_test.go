@@ -45,3 +45,22 @@ func TestInitializeIsIdempotent(t *testing.T) {
 		t.Fatal("existing config was changed")
 	}
 }
+
+func TestInitializeKeepsLoadedSettings(t *testing.T) {
+	viper.Reset()
+	t.Cleanup(viper.Reset)
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	if _, err := Initialize(); err != nil {
+		t.Fatal(err)
+	}
+	viper.Set("remote.enabled", true)
+	viper.Set("github.username", "octocat")
+	if _, err := Initialize(); err != nil {
+		t.Fatal(err)
+	}
+	if !viper.GetBool("remote.enabled") || viper.GetString("github.username") != "octocat" {
+		t.Fatal("initializing an existing configuration replaced loaded settings with defaults")
+	}
+}

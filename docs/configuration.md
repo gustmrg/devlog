@@ -106,8 +106,10 @@ chmod 600 ~/.devlog/sync.env
 devlog sync schedule --daily-at 23:55 --env-file ~/.devlog/sync.env
 ```
 
-The file is read by DevLog and is not copied into the cron or `launchd`
-definition. Scheduled output is appended to `~/.devlog/sync.log`.
+The file is read by DevLog and is not copied into the cron, `launchd`, or Task
+Scheduler definition. Scheduled output is appended to `~/.devlog/sync.log`, or
+`~/.devlog/collect.log` for `devlog collect schedule`, which takes the same
+`--env-file` option.
 
 ## Remote data synchronization
 

@@ -106,6 +106,7 @@ type collectOptions struct {
 	remote  bool
 	asJSON  bool
 	envFile string
+	logFile string
 	// polish rewrites the descriptions of new, non-snapshot entries with the
 	// configured LLM before they are stored.
 	polish bool
@@ -129,12 +130,18 @@ func runCollect(cmd *cobra.Command, args []string) error {
 	options.remote, _ = cmd.Flags().GetBool("remote")
 	options.asJSON, _ = cmd.Flags().GetBool("json")
 	options.envFile, _ = cmd.Flags().GetString("env-file")
+	options.logFile, _ = cmd.Flags().GetString("log-file")
 	return executeCollect(cmd, options)
 }
 
 func executeCollect(cmd *cobra.Command, options collectOptions) error {
 	dryRun, remoteSync, window := options.dryRun, options.remote, options.window
 	loc := window.Location
+	if options.logFile != "" {
+		if err := redirectOutput(options.logFile); err != nil {
+			return err
+		}
+	}
 	if options.envFile != "" {
 		path, err := absolutePath(options.envFile)
 		if err != nil {
@@ -428,4 +435,6 @@ func init() {
 	collectCmd.Flags().Bool("json", false, "Print the collection report as JSON")
 	collectCmd.Flags().String("env-file", "", "Load API credentials from a protected KEY=VALUE file")
 	_ = collectCmd.Flags().MarkHidden("env-file")
+	collectCmd.Flags().String("log-file", "", "Append all output to this file")
+	_ = collectCmd.Flags().MarkHidden("log-file")
 }

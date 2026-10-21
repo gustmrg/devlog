@@ -95,6 +95,29 @@ devlog collect --dry-run
 devlog collect --from 2026-08-17 --to 2026-08-21
 ```
 
+### `devlog collect schedule`
+
+Run `devlog collect` automatically, Monday to Friday unless `--every-day` is
+set. macOS uses `launchd`, which runs a collection missed while the Mac slept
+once it wakes; Linux uses the user crontab; Windows uses Task Scheduler, which
+runs a missed collection as soon as it can.
+
+| Option | Description |
+| --- | --- |
+| `--at <times>` | Comma-separated `HH:MM` times (default `12:15,18:15`). |
+| `--every-day` | Run on weekends too. |
+| `--sources <list>` | Sources to collect (defaults to `collect.sources` when the job runs). |
+| `--remote` | Pull and push the configured data repository around each run. |
+| `--env-file <path>` | Load tokens from a protected `KEY=VALUE` file. |
+
+```bash
+devlog collect schedule --at 12:15,18:15 --remote
+devlog collect schedule show
+devlog collect schedule remove
+```
+
+Output is appended to `~/.devlog/collect.log`.
+
 ## GitHub activity
 
 ### `devlog sync`
@@ -121,8 +144,8 @@ setup.
 
 ### `devlog sync schedule`
 
-Install a daily GitHub import using `launchd` on macOS or the user crontab on
-Linux.
+Install a daily GitHub import using `launchd` on macOS, the user crontab on
+Linux, or Task Scheduler on Windows.
 
 ```bash
 devlog sync schedule --daily-at 23:55

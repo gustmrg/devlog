@@ -16,7 +16,8 @@ import (
 var syncScheduleCmd = &cobra.Command{
 	Use:   "schedule",
 	Short: "Install a daily automatic sync",
-	Long: `Install a daily sync using launchd on macOS or the user's crontab on Linux.
+	Long: `Install a daily sync using launchd on macOS, the user's crontab on Linux,
+or Task Scheduler on Windows.
 
 Scheduled jobs have a minimal environment. Use --env-file to load API keys
 from a file containing KEY=VALUE lines. The file must only be accessible by
@@ -33,37 +34,14 @@ its owner (for example, chmod 600 ~/.devlog/sync.env).`,
 		if err != nil {
 			return err
 		}
-		executable, err := os.Executable()
-		if err != nil {
-			return fmt.Errorf("could not locate the DevLog executable: %w", err)
+		jobArgs := []string{"sync"}
+		if polish {
+			jobArgs = append(jobArgs, "--polish")
 		}
-		executable, err = filepath.Abs(executable)
-		if err != nil {
-			return err
+		if remote {
+			jobArgs = append(jobArgs, "--remote")
 		}
-		if envFile != "" {
-			envFile, err = absolutePath(envFile)
-			if err != nil {
-				return fmt.Errorf("could not resolve environment file: %w", err)
-			}
-			if err := validateEnvFile(envFile); err != nil {
-				return err
-			}
-		}
-		home, err := store.ConfigPath()
-		if err != nil {
-			return err
-		}
-		logFile := filepath.Join(home, "sync.log")
-		installedAt, err := scheduler.Install(scheduler.Options{
-			Executable: executable,
-			Hour:       hour,
-			Minute:     minute,
-			Polish:     polish,
-			Remote:     remote,
-			EnvFile:    envFile,
-			LogFile:    logFile,
-		})
+		installedAt, logFile, err := installSchedule("sync", []scheduler.Clock{{Hour: hour, Minute: minute}}, false, jobArgs, envFile)
 		if err != nil {
 			return fmt.Errorf("could not install automatic sync: %w", err)
 		}
@@ -81,7 +59,7 @@ var syncScheduleShowCmd = &cobra.Command{
 	Use:   "show",
 	Short: "Show the installed automatic sync definition",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		definition, installed, err := scheduler.Show()
+		definition, installed, err := scheduler.Show("sync")
 		if err != nil {
 			return fmt.Errorf("could not show automatic sync: %w", err)
 		}
@@ -98,7 +76,7 @@ var syncScheduleRemoveCmd = &cobra.Command{
 	Use:   "remove",
 	Short: "Remove the installed automatic sync",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		removed, err := scheduler.Remove()
+		removed, err := scheduler.Remove("sync")
 		if err != nil {
 			return fmt.Errorf("could not remove automatic sync: %w", err)
 		}
@@ -109,6 +87,43 @@ var syncScheduleRemoveCmd = &cobra.Command{
 		fmt.Println("Automatic sync removed.")
 		return nil
 	},
+}
+
+// installSchedule installs the named job running args, adding --env-file
+// when one is given, and returns where it was installed and its log file.
+func installSchedule(name string, times []scheduler.Clock, weekdays bool, args []string, envFile string) (string, string, error) {
+	executable, err := os.Executable()
+	if err != nil {
+		return "", "", fmt.Errorf("could not locate the DevLog executable: %w", err)
+	}
+	executable, err = filepath.Abs(executable)
+	if err != nil {
+		return "", "", err
+	}
+	if envFile != "" {
+		envFile, err = absolutePath(envFile)
+		if err != nil {
+			return "", "", fmt.Errorf("could not resolve environment file: %w", err)
+		}
+		if err := validateEnvFile(envFile); err != nil {
+			return "", "", err
+		}
+		args = append(args, "--env-file", envFile)
+	}
+	home, err := store.ConfigPath()
+	if err != nil {
+		return "", "", err
+	}
+	logFile := filepath.Join(home, name+".log")
+	installedAt, err := scheduler.Install(scheduler.Options{
+		Name:       name,
+		Executable: executable,
+		Times:      times,
+		Weekdays:   weekdays,
+		Args:       args,
+		LogFile:    logFile,
+	})
+	return installedAt, logFile, err
 }
 
 func absolutePath(path string) (string, error) {

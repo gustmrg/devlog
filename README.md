@@ -19,8 +19,13 @@ curl -fsSL https://raw.githubusercontent.com/gustmrg/devlog/main/scripts/install
 ```
 
 The installer detects your platform, verifies the release checksum, and places
-`devlog` in `/usr/local/bin`. Windows builds are available on the
-[releases page](https://github.com/gustmrg/devlog/releases).
+`devlog` in `/usr/local/bin`. On Windows, use the PowerShell installer; it
+installs to `%LOCALAPPDATA%\Programs\devlog` and adds that folder to your user
+`PATH`:
+
+```powershell
+irm https://raw.githubusercontent.com/gustmrg/devlog/main/scripts/install.ps1 | iex
+```
 
 Then create the local configuration:
 
@@ -50,8 +55,8 @@ Use `--date YYYY-MM-DD` with these commands to work with another day.
 
 - Dated activity entries organized by project and tags
 - Markdown summaries with optional AI-generated writing styles
-- GitHub activity import for commits, pull requests, and reviews
-- Daily automatic sync on macOS and Linux
+- Automatic activity collection from Git, GitHub, Claude Code, and opencode
+- Scheduled collection on macOS, Linux, and Windows
 - Multi-device synchronization through a private Git repository
 - Local, conflict-resistant storage that remains easy to inspect
 - Self-updates with release checksum verification

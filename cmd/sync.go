@@ -60,6 +60,7 @@ Examples:
 		options.polish, _ = cmd.Flags().GetBool("polish")
 		options.remote, _ = cmd.Flags().GetBool("remote")
 		options.envFile, _ = cmd.Flags().GetString("env-file")
+		options.logFile, _ = cmd.Flags().GetString("log-file")
 		return executeCollect(cmd, options)
 	},
 }
@@ -175,4 +176,6 @@ func init() {
 	syncCmd.Flags().Bool("remote", false, "Pull and push the configured DevLog Git remote")
 	syncCmd.Flags().String("env-file", "", "Load API credentials from a protected KEY=VALUE file")
 	_ = syncCmd.Flags().MarkHidden("env-file")
+	syncCmd.Flags().String("log-file", "", "Append all output to this file")
+	_ = syncCmd.Flags().MarkHidden("log-file")
 }

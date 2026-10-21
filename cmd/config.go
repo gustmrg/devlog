@@ -16,23 +16,30 @@ type configValueKind int
 const (
 	configString configValueKind = iota
 	configBool
+	configStringList
 )
 
 var configurableKeys = map[string]configValueKind{
-	"defaults.language":  configString,
-	"defaults.project":   configString,
-	"defaults.style":     configString,
-	"github.tokenenvvar": configString,
-	"github.username":    configString,
-	"llm.apikeyenvvar":   configString,
-	"llm.baseurl":        configString,
-	"llm.enabled":        configBool,
-	"llm.model":          configString,
-	"llm.provider":       configString,
-	"remote.branch":      configString,
-	"remote.enabled":     configBool,
-	"remote.url":         configString,
-	"storage.path":       configString,
+	"collect.git.authoremails": configStringList,
+	"collect.git.roots":        configStringList,
+	"collect.sources":          configStringList,
+	"collect.ticketpattern":    configString,
+	"collect.timezone":         configString,
+	"defaults.language":        configString,
+	"defaults.project":         configString,
+	"defaults.style":           configString,
+	"device.name":              configString,
+	"github.tokenenvvar":       configString,
+	"github.username":          configString,
+	"llm.apikeyenvvar":         configString,
+	"llm.baseurl":              configString,
+	"llm.enabled":              configBool,
+	"llm.model":                configString,
+	"llm.provider":             configString,
+	"remote.branch":            configString,
+	"remote.enabled":           configBool,
+	"remote.url":               configString,
+	"storage.path":             configString,
 }
 
 var configCmd = &cobra.Command{
@@ -103,6 +110,15 @@ func canonicalConfigKey(value string) (string, error) {
 }
 
 func parseConfigValue(key, value string) (any, error) {
+	if configurableKeys[key] == configStringList {
+		items := []string{}
+		for item := range strings.SplitSeq(value, ",") {
+			if trimmed := strings.TrimSpace(item); trimmed != "" {
+				items = append(items, trimmed)
+			}
+		}
+		return items, nil
+	}
 	if configurableKeys[key] == configBool {
 		parsed, err := strconv.ParseBool(value)
 		if err != nil {

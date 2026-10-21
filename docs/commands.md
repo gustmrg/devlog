@@ -59,6 +59,36 @@ List saved summaries. With no options, it shows the current week.
 | `--from <YYYY-MM-DD>` | Set the start of a custom range. |
 | `--to <YYYY-MM-DD>` | Set the end of a custom range. |
 
+## Activity collection
+
+### `devlog collect`
+
+Collect development activity from this device and store it on the day it
+happened. Entries keep their repository, branch, ticket keys, and time, and
+their text is never rewritten. Running it again completes stored entries
+instead of duplicating them.
+
+| Source | What it records |
+| --- | --- |
+| `git` | Commits you authored on every branch, branch activity from the reflog, and uncommitted or unpushed work on the checked-out branch, for the repositories under `collect.git.roots`. |
+
+| Option | Description |
+| --- | --- |
+| `--date <YYYY-MM-DD>` | Collect a specific day (defaults to today). |
+| `--from <YYYY-MM-DD>`, `--to <YYYY-MM-DD>` | Collect a range of days. |
+| `--sources <list>` | Comma-separated sources (defaults to `collect.sources`). |
+| `--dry-run` | Print what would be collected without writing it. |
+| `--remote` | Pull and push the configured data repository around the collection. |
+| `--json` | Print the collection report as JSON. |
+
+Each run also records, per device and source, when it last ran and which
+window it covered, under `devices/` in the data directory.
+
+```bash
+devlog collect --dry-run
+devlog collect --from 2026-08-17 --to 2026-08-21
+```
+
 ## GitHub activity
 
 ### `devlog sync`

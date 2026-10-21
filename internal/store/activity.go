@@ -19,7 +19,6 @@ const (
 	KindComment        = "comment"
 	KindBranchCreated  = "branch-created"
 	KindBranchActivity = "branch-activity"
-	KindWIP            = "wip"
 	KindSession        = "session"
 	KindNote           = "note"
 )
@@ -48,7 +47,8 @@ type Activity struct {
 	Count int `json:"count,omitempty"`
 }
 
-// Changes summarizes uncommitted or unpushed work in a repository.
+// Changes summarizes the uncommitted and unpushed work on a branch when it
+// was collected.
 type Changes struct {
 	Files      int `json:"files,omitempty"`
 	Insertions int `json:"insertions,omitempty"`
@@ -61,7 +61,7 @@ type Changes struct {
 // the work goes on, so a later collection replaces it instead of filling it.
 func (a *Activity) Snapshot() bool {
 	switch a.Kind {
-	case KindWIP, KindSession, KindBranchActivity:
+	case KindSession, KindBranchActivity:
 		return true
 	}
 	return false

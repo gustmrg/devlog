@@ -60,9 +60,9 @@ func newSetupTest(t *testing.T, config string) string {
 	viper.SetConfigType("json")
 	viper.SetConfigName("config")
 	_ = viper.ReadInConfig()
-	previousGOOS := setupGOOS
-	setupGOOS = "linux"
-	t.Cleanup(func() { setupGOOS = previousGOOS })
+	previousGOOS := serviceGOOS
+	serviceGOOS = "linux"
+	t.Cleanup(func() { serviceGOOS = previousGOOS })
 	return home
 }
 

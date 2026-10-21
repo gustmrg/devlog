@@ -11,7 +11,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
-	"runtime"
 	"slices"
 	"strconv"
 	"strings"
@@ -443,11 +442,8 @@ func askSchedule(p *prompter, actions setupActions, role int, envFile string) er
 	return nil
 }
 
-// setupGOOS is the platform setup offers services for; tests replace it.
-var setupGOOS = runtime.GOOS
-
 func askMCP(p *prompter, actions setupActions) error {
-	if setupGOOS != "linux" {
+	if serviceGOOS != "linux" {
 		p.warn("to serve activity to agents, run devlog mcp --http %s under your service manager", mcpDefaultAddress)
 		return nil
 	}

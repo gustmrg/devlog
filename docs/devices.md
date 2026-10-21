@@ -102,7 +102,8 @@ Add `https://<machine>.<tailnet>.ts.net:8444/mcp` to your agent as a remote MCP
 server with header authentication: header `Authorization`, value
 `Bearer <token>`, where the token is in `~/.devlog/mcp-token`. Check the
 service with `systemctl --user status devlog-mcp` and
-`journalctl --user -u devlog-mcp`.
+`journalctl --user -u devlog-mcp`. `devlog update`, or `sudo devlog update`
+when DevLog is installed in `/usr/local/bin`, restarts it on the new version.
 
 ## Checking coverage
 

@@ -26,6 +26,20 @@ const (
 // directory that serviceExecutable refuses.
 var currentExecutable = os.Executable
 
+// serviceGOOS is the platform service management targets; tests replace it,
+// along with the effective user ID and home directory lookup.
+var (
+	serviceGOOS = runtime.GOOS
+	currentEUID = os.Geteuid
+	lookupHome  = func(name string) (string, error) {
+		account, err := user.Lookup(name)
+		if err != nil {
+			return "", err
+		}
+		return account.HomeDir, nil
+	}
+)
+
 // runSystemCommand runs a service manager command; tests replace it.
 var runSystemCommand = func(name string, args ...string) (string, error) {
 	output, err := exec.Command(name, args...).CombinedOutput()
@@ -137,6 +151,51 @@ var mcpUninstallCmd = &cobra.Command{
 	},
 }
 
+// restartMCPServiceAfterUpdate restarts devlog-mcp.service when it is
+// running, so it serves the new executable. It returns what to tell the user,
+// or "" when no service is installed, and false when the user has to act. A stopped service stays stopped
+// and loads the new executable when it starts. Under sudo it manages the
+// service of the user who ran sudo.
+func restartMCPServiceAfterUpdate() (string, bool) {
+	if serviceGOOS != "linux" {
+		return "", true
+	}
+	scope := []string{"--user"}
+	manual := "systemctl --user restart devlog-mcp"
+	unitPath, err := mcpUnitPath()
+	if sudoUser := os.Getenv("SUDO_USER"); currentEUID() == 0 && sudoUser != "" && sudoUser != "root" {
+		home, lookupErr := lookupHome(sudoUser)
+		if lookupErr != nil {
+			return fmt.Sprintf("could not find %s's MCP service; if it is installed, run `%s` as %s", sudoUser, manual, sudoUser), false
+		}
+		unitPath, err = filepath.Join(home, ".config", "systemd", "user", mcpServiceName), nil
+		scope = append(scope, "--machine="+sudoUser+"@")
+		manual += " as " + sudoUser
+	}
+	if err != nil {
+		return "", true
+	}
+	if _, err := os.Stat(unitPath); err != nil {
+		return "", true
+	}
+	state, _ := runSystemCommand("systemctl", append(scope, "is-active", mcpServiceName)...)
+	switch strings.TrimSpace(state) {
+	case "active":
+	case "inactive", "failed":
+		return "the MCP service is stopped; it runs the new version when it starts", true
+	default:
+		return fmt.Sprintf("could not check the MCP service; run `%s`", manual), false
+	}
+	if output, err := runSystemCommand("systemctl", append(scope, "restart", mcpServiceName)...); err != nil {
+		detail := strings.TrimSpace(output)
+		if detail == "" {
+			detail = err.Error()
+		}
+		return fmt.Sprintf("could not restart the MCP service (%s); run `%s`", detail, manual), false
+	}
+	return "restarted the MCP service on the new version", true
+}
+
 func systemctl(args ...string) error {
 	output, err := runSystemCommand("systemctl", args...)
 	if err != nil {
@@ -159,7 +218,7 @@ func lingerEnabled() bool {
 }
 
 func requireSystemd() error {
-	if runtime.GOOS != "linux" {
+	if serviceGOOS != "linux" {
 		return fmt.Errorf("the MCP service is only supported on Linux with systemd; run `devlog mcp --http ADDRESS` under your own service manager instead")
 	}
 	return nil

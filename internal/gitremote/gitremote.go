@@ -115,7 +115,7 @@ func (m *Manager) syncLocked(ctx context.Context) error {
 }
 
 func (m *Manager) mergeRemote(ctx context.Context) error {
-	_, err := m.git(ctx, "-c", "user.name=DevLog", "-c", "user.email=devlog@local", "merge", "--no-edit", "--allow-unrelated-histories", "origin/"+m.Branch)
+	_, err := m.git(ctx, append(m.identityArgs(ctx), "merge", "--no-edit", "--allow-unrelated-histories", "origin/"+m.Branch)...)
 	if err == nil {
 		if err := m.reconcileDuplicateSources(); err != nil {
 			return err
@@ -372,8 +372,25 @@ func (m *Manager) commit(ctx context.Context, message string) error {
 			return err
 		}
 	}
-	_, err := m.git(ctx, "-c", "user.name=DevLog", "-c", "user.email=devlog@local", "commit", "-m", message)
+	_, err := m.git(ctx, append(m.identityArgs(ctx), "commit", "-m", message)...)
 	return err
+}
+
+// identityArgs makes DevLog's commits and merges use the Git identity
+// configured for the data repository, so they are attributed to the user. A
+// name or email Git does not have falls back to DevLog's own, so unattended
+// syncs never stop to ask who is committing.
+func (m *Manager) identityArgs(ctx context.Context) []string {
+	var args []string
+	for _, setting := range []struct{ key, fallback string }{
+		{"user.name", "DevLog"},
+		{"user.email", "devlog@local"},
+	} {
+		if value, err := m.git(ctx, "config", setting.key); err != nil || strings.TrimSpace(string(value)) == "" {
+			args = append(args, "-c", setting.key+"="+setting.fallback)
+		}
+	}
+	return args
 }
 
 func (m *Manager) remoteBranchExists(ctx context.Context) (bool, error) {

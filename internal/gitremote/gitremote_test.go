@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -193,5 +194,45 @@ func TestNewerDeviceStatusKeepsTheLatestUpdate(t *testing.T) {
 	}
 	if got := newerDeviceStatus(nil, older); string(got) != string(older) {
 		t.Errorf("newerDeviceStatus(nil, older) kept %s", got)
+	}
+}
+
+func TestCommitsUseTheConfiguredGitIdentity(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git is not installed")
+	}
+	for _, test := range []struct {
+		name   string
+		config string
+		want   string
+	}{
+		{name: "configured", config: "[user]\n\tname = Dev Person\n\temail = dev@example.com\n", want: "Dev Person <dev@example.com>"},
+		{name: "partial", config: "[user]\n\temail = dev@example.com\n", want: "DevLog <dev@example.com>"},
+		{name: "missing", want: "DevLog <devlog@local>"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			root := t.TempDir()
+			global := filepath.Join(root, "gitconfig")
+			if err := os.WriteFile(global, []byte(test.config), 0644); err != nil {
+				t.Fatal(err)
+			}
+			t.Setenv("GIT_CONFIG_GLOBAL", global)
+			t.Setenv("GIT_CONFIG_NOSYSTEM", "1")
+			bare := filepath.Join(root, "remote.git")
+			if output, err := exec.Command("git", "init", "--bare", bare).CombinedOutput(); err != nil {
+				t.Fatalf("git init --bare failed: %s", output)
+			}
+			repo := newTestRepository(t, filepath.Join(root, "machine"))
+			if err := New(repo, bare, "main").Init(context.Background()); err != nil {
+				t.Fatal(err)
+			}
+			output, err := exec.Command("git", "-C", repo.Root, "log", "-1", "--format=%an <%ae>|%cn <%ce>").Output()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := strings.TrimSpace(string(output)); got != test.want+"|"+test.want {
+				t.Fatalf("author|committer = %q, want %q for both", got, test.want)
+			}
+		})
 	}
 }

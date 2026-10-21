@@ -20,6 +20,7 @@ import (
 var createCmd = &cobra.Command{
 	Use:   "create",
 	Short: "Generate a structured summary from logged entries",
+	Args:  cobra.NoArgs,
 	Long: `Generates a structured summary from logged entries and saves it to ~/.devlog/summaries/.
 
 Options:

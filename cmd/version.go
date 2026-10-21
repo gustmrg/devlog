@@ -44,6 +44,7 @@ func versionString() string {
 var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Print the devlog version, commit, and build date",
+	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Print(versionString())
 		if checkUpdate {

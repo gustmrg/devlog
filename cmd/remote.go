@@ -46,6 +46,7 @@ var remoteInitCmd = &cobra.Command{
 var remoteStatusCmd = &cobra.Command{
 	Use:   "status",
 	Short: "Show remote synchronization status",
+	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		repo, err := store.OpenRepository()
 		if err != nil {
@@ -70,6 +71,7 @@ var remoteStatusCmd = &cobra.Command{
 var remoteSyncCmd = &cobra.Command{
 	Use:   "sync",
 	Short: "Pull, merge, and push DevLog data",
+	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		repo, err := store.OpenRepository()
 		if err != nil {
@@ -86,6 +88,7 @@ var remoteSyncCmd = &cobra.Command{
 var remoteRemoveCmd = &cobra.Command{
 	Use:   "remove",
 	Short: "Disconnect the remote without deleting local data",
+	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		repo, err := store.OpenRepository()
 		if err != nil {

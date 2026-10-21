@@ -17,6 +17,7 @@ import (
 var listCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List previously generated summaries",
+	Args:  cobra.NoArgs,
 	Long: `Lists previously generated summaries from ~/.devlog/summaries/.
 
 With no flags, summaries from the current week (Monday–Sunday) are shown.

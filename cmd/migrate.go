@@ -11,6 +11,7 @@ import (
 var migrateCmd = &cobra.Command{
 	Use:   "migrate",
 	Short: "Migrate legacy daily logs to the current data format",
+	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		_, result, err := store.MigrateRepository()
 		if err != nil {

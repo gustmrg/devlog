@@ -20,6 +20,7 @@ import (
 var syncCmd = &cobra.Command{
 	Use:   "sync",
 	Short: "Import GitHub activity (commits, PRs, reviews) as entries",
+	Args:  cobra.NoArgs,
 	Long: `Collects your GitHub activity for a date and adds it to that day's log.
 It is the same as devlog collect --sources github, with --polish to rewrite
 new descriptions with the configured LLM:

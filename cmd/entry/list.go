@@ -24,6 +24,7 @@ func NewListCmd() *cobra.Command {
 	listCmd := &cobra.Command{
 		Use:   "list",
 		Short: "Display logged entries with optional filters",
+		Args:  cobra.NoArgs,
 		Long: `Displays logged entries with optional filters.
 
 Options:

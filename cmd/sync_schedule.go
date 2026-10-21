@@ -16,6 +16,7 @@ import (
 var syncScheduleCmd = &cobra.Command{
 	Use:   "schedule",
 	Short: "Install a daily automatic sync",
+	Args:  cobra.NoArgs,
 	Long: `Install a daily sync using launchd on macOS, the user's crontab on Linux,
 or Task Scheduler on Windows.
 
@@ -58,6 +59,7 @@ its owner (for example, chmod 600 ~/.devlog/sync.env).`,
 var syncScheduleShowCmd = &cobra.Command{
 	Use:   "show",
 	Short: "Show the installed automatic sync definition",
+	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		definition, installed, err := scheduler.Show("sync")
 		if err != nil {
@@ -75,6 +77,7 @@ var syncScheduleShowCmd = &cobra.Command{
 var syncScheduleRemoveCmd = &cobra.Command{
 	Use:   "remove",
 	Short: "Remove the installed automatic sync",
+	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		removed, err := scheduler.Remove("sync")
 		if err != nil {

@@ -4,6 +4,8 @@ import (
 	"context"
 	"strings"
 	"testing"
+
+	"github.com/spf13/cobra"
 )
 
 func TestRootDoesNotPrintUsageForRuntimeErrors(t *testing.T) {
@@ -35,5 +37,30 @@ func TestInvalidConfigBooleanIncludesValueAndExpectedFormat(t *testing.T) {
 	}
 	if got, want := err.Error(), `invalid value "yes" for llm.enabled: expected true or false`; got != want {
 		t.Fatalf("error = %q, want %q", got, want)
+	}
+}
+
+// TestRunnableCommandsValidateArguments guards against commands that ignore
+// stray arguments: "devlog sync schedule now" used to install a job instead of
+// reporting that "now" is not a subcommand.
+func TestRunnableCommandsValidateArguments(t *testing.T) {
+	var walk func(*cobra.Command)
+	walk = func(command *cobra.Command) {
+		if command.Runnable() && command.Args == nil {
+			t.Errorf("%s accepts any arguments; set Args, such as cobra.NoArgs", command.CommandPath())
+		}
+		for _, child := range command.Commands() {
+			walk(child)
+		}
+	}
+	walk(RootCmd)
+}
+
+func TestUnknownSubcommandIsRejected(t *testing.T) {
+	RootCmd.SetArgs([]string{"sync", "schedule", "now"})
+	t.Cleanup(func() { RootCmd.SetArgs(nil) })
+	err := RootCmd.Execute()
+	if err == nil || !strings.Contains(err.Error(), `unknown command "now"`) {
+		t.Fatalf("error = %v, want an unknown command error", err)
 	}
 }

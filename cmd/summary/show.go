@@ -22,6 +22,7 @@ var (
 var showCmd = &cobra.Command{
 	Use:   "show",
 	Short: "Display the contents of a previously generated summary",
+	Args:  cobra.NoArgs,
 	Long: `Displays the contents of a previously generated summary from ~/.devlog/summaries/.
 
 Options:

@@ -54,6 +54,7 @@ func confirm(prompt string) bool {
 var updateCmd = &cobra.Command{
 	Use:   "update",
 	Short: "Update devlog to the latest release",
+	Args:  cobra.NoArgs,
 	Long: `Checks GitHub for a newer release and, if found, downloads it,
 verifies its checksum, and replaces the running binary in place.
 

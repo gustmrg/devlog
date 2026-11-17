@@ -9,7 +9,7 @@ permissions:
   contents: write
 
 jobs:
-  release:
+  cli:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -18,12 +18,14 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
+          go-version-file: apps/cli/go.mod
+          cache-dependency-path: apps/cli/go.sum
 
       - uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser
           version: "~> v2"
           args: release --clean
+          workdir: apps/cli
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

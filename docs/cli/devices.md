@@ -23,7 +23,7 @@ check that your employer allows keeping them there.
 
 ## Work machines (macOS, Linux, Windows)
 
-Install DevLog with the script for your platform (see the [README](../README.md)),
+Install DevLog with the script for your platform (see the [CLI README](../../apps/cli/README.md)),
 then run `devlog setup` and choose **Work machine**. It asks for the device
 name, time zone, ticket key pattern, the folders with your repositories, your
 commit emails, and the `opencode` executable; then it connects the data
